@@ -410,85 +410,85 @@ def setup(casesheetPath : str, pscad : bool, pfEncapsulation : Optional[si.PFint
     cases : List[Case] = []
     emtCases : List[Case] = []
 
-    for _, case in df.iterrows(): # type: ignore
-        cases.append(Case(case)) # type: ignore
+    for _, case_ in df.iterrows(): # type: ignore
+        cases.append(Case(case_)) # type: ignore
         maxRank = max(maxRank, cases[-1].rank)
 
     if plantSettings.Run_custom_cases and plantSettings.Casegroup != 'Custom':
         dfc = pd.read_excel(casesheetPath, sheet_name='Custom cases', header=1) # type: ignore
-        for _, case in dfc.iterrows(): # type: ignore
-            cases.append(Case(case)) # type: ignore
+        for _, case_ in dfc.iterrows(): # type: ignore
+            cases.append(Case(case_)) # type: ignore
             maxRank = max(maxRank, cases[-1].rank)
 
-    for case in cases:
+    for case_ in cases:
         # Simulation time
         pf_lonRec = pscad_lonRec = 0.0
 
         # PF: Default symmetrical simulation
-        ldf_c_iopt_net[case.rank] = 0
-        inc_c_iopt_net[case.rank] = 'sym'
+        ldf_c_iopt_net[case_.rank] = 0
+        inc_c_iopt_net[case_.rank] = 'sym'
 
         # Voltage source control default setup
-        mtb_t_vmode[case.rank] = 0
-        mtb_s_vref_pu[case.rank] = -case.U0
-        mtb_s_phref_deg[case.rank] = 0.0
-        mtb_s_dvref_pu[case.rank] =  0.0
-        mtb_s_fref_hz[case.rank] = 50.0
+        mtb_t_vmode[case_.rank] = 0
+        mtb_s_vref_pu[case_.rank] = -case_.U0
+        mtb_s_phref_deg[case_.rank] = 0.0
+        mtb_s_dvref_pu[case_.rank] =  0.0
+        mtb_s_fref_hz[case_.rank] = 50.0
 
-        mtb_s_varef_pu[case.rank] = 0.0
-        mtb_s_vbref_pu[case.rank] = 0.0
-        mtb_s_vcref_pu[case.rank] = 0.0
+        mtb_s_varef_pu[case_.rank] = 0.0
+        mtb_s_vbref_pu[case_.rank] = 0.0
+        mtb_s_vcref_pu[case_.rank] = 0.0
 
-        mtb_s_scr[case.rank] = case.SCR0
-        mtb_s_xr[case.rank] = case.XR0
+        mtb_s_scr[case_.rank] = case_.SCR0
+        mtb_s_xr[case_.rank] = case_.XR0
 
-        ldf_t_uk[case.rank], ldf_t_pcu_kw[case.rank] = impedance_uk_pcu(case.SCR0, case.XR0, plantSettings.Pn, plantSettings.Un, plantSettings.Uc)
+        ldf_t_uk[case_.rank], ldf_t_pcu_kw[case_.rank] = impedance_uk_pcu(case_.SCR0, case_.XR0, plantSettings.Pn, plantSettings.Un, plantSettings.Uc)
 
-        mtb_t_r0_ohm[case.rank] = plantSettings.R0
-        mtb_t_x0_ohm[case.rank] = plantSettings.X0
+        mtb_t_r0_ohm[case_.rank] = plantSettings.R0
+        mtb_t_x0_ohm[case_.rank] = plantSettings.X0
         
         # Standard plant references and outputs default setup
-        mtb_s_pref_pu[case.rank] = case.P0
+        mtb_s_pref_pu[case_.rank] = case_.P0
         
         # Set Qmode
-        if case.Qmode.lower() == 'default':
-            case.Qmode = plantSettings.Default_Q_mode
+        if case_.Qmode.lower() == 'default':
+            case_.Qmode = plantSettings.Default_Q_mode
 
-        mtb_t_qmode[case.rank] = QMODES[case.Qmode.lower()]
+        mtb_t_qmode[case_.rank] = QMODES[case_.Qmode.lower()]
 
-        mtb_s_qref[case.rank] = case.Qref0
-        mtb_s_qref_q_pu[case.rank] = case.Qref0 if mtb_t_qmode[case.rank].s0 == 0 else 0.0
-        mtb_s_qref_qu_pu[case.rank] = case.Qref0 if mtb_t_qmode[case.rank].s0 == 1 else 0.0
-        mtb_s_qref_pf[case.rank] = case.Qref0 if mtb_t_qmode[case.rank].s0 == 2 else 0.0
-        mtb_s_qref_3[case.rank] = case.Qref0 if mtb_t_qmode[case.rank].s0 == 3 else 0.0
-        mtb_s_qref_4[case.rank] = case.Qref0 if mtb_t_qmode[case.rank].s0 == 4 else 0.0
-        mtb_s_qref_5[case.rank] = case.Qref0 if mtb_t_qmode[case.rank].s0 == 5 else 0.0
-        mtb_s_qref_6[case.rank] = case.Qref0 if mtb_t_qmode[case.rank].s0 == 6 else 0.0
+        mtb_s_qref[case_.rank] = case_.Qref0
+        mtb_s_qref_q_pu[case_.rank] = case_.Qref0 if mtb_t_qmode[case_.rank].s0 == 0 else 0.0
+        mtb_s_qref_qu_pu[case_.rank] = case_.Qref0 if mtb_t_qmode[case_.rank].s0 == 1 else 0.0
+        mtb_s_qref_pf[case_.rank] = case_.Qref0 if mtb_t_qmode[case_.rank].s0 == 2 else 0.0
+        mtb_s_qref_3[case_.rank] = case_.Qref0 if mtb_t_qmode[case_.rank].s0 == 3 else 0.0
+        mtb_s_qref_4[case_.rank] = case_.Qref0 if mtb_t_qmode[case_.rank].s0 == 4 else 0.0
+        mtb_s_qref_5[case_.rank] = case_.Qref0 if mtb_t_qmode[case_.rank].s0 == 5 else 0.0
+        mtb_s_qref_6[case_.rank] = case_.Qref0 if mtb_t_qmode[case_.rank].s0 == 6 else 0.0
 
-        mtb_t_pmode[case.rank] = PMODES[case.Pmode.lower()]
+        mtb_t_pmode[case_.rank] = PMODES[case_.Pmode.lower()]
 
         # Fault signals
-        flt_s_type[case.rank] = 0.0
-        flt_s_rf_ohm[case.rank] = 0.0
-        flt_s_resxf[case.rank] = 0.0
+        flt_s_type[case_.rank] = 0.0
+        flt_s_rf_ohm[case_.rank] = 0.0
+        flt_s_resxf[case_.rank] = 0.0
         
         # Default custom signal values
-        mtb_s[0][case.rank] = 0.0
-        mtb_s[1][case.rank] = 0.0
-        mtb_s[2][case.rank] = 0.0
-        mtb_s[3][case.rank] = 0.0
-        mtb_s[4][case.rank] = 0.0
-        mtb_s[5][case.rank] = 0.0
-        mtb_s[6][case.rank] = 0.0
-        mtb_s[7][case.rank] = 0.0
-        mtb_s[8][case.rank] = 0.0
-        mtb_s[9][case.rank] = 0.0
+        mtb_s[0][case_.rank] = 0.0
+        mtb_s[1][case_.rank] = 0.0
+        mtb_s[2][case_.rank] = 0.0
+        mtb_s[3][case_.rank] = 0.0
+        mtb_s[4][case_.rank] = 0.0
+        mtb_s[5][case_.rank] = 0.0
+        mtb_s[6][case_.rank] = 0.0
+        mtb_s[7][case_.rank] = 0.0
+        mtb_s[8][case_.rank] = 0.0
+        mtb_s[9][case_.rank] = 0.0
 
         # Default OOS references
-        ldf_t_refOOS[case.rank] = 0
+        ldf_t_refOOS[case_.rank] = 0
 
         # Parse events
-        for event in case.Events:
+        for event in case_.Events:
             eventType = event[0]
             eventTime = event[1]
             eventX1 = event[2]
@@ -497,74 +497,74 @@ def setup(casesheetPath : str, pscad : bool, pfEncapsulation : Optional[si.PFint
             if eventType == 'Pref':
                 assert isinstance(eventX1, float)
                 assert isinstance(eventX2, float)
-                mtb_s_pref_pu[case.rank].add(eventTime, eventX1, eventX2)
+                mtb_s_pref_pu[case_.rank].add(eventTime, eventX1, eventX2)
 
             elif eventType == 'Qref':
                 assert isinstance(eventX1, float)
                 assert isinstance(eventX2, float)
-                mtb_s_qref[case.rank].add(eventTime, eventX1, eventX2)
+                mtb_s_qref[case_.rank].add(eventTime, eventX1, eventX2)
 
-                if mtb_t_qmode[case.rank].s0 == 0:
-                    mtb_s_qref_q_pu[case.rank].add(eventTime, eventX1, eventX2)
-                elif mtb_t_qmode[case.rank].s0 == 1:
-                    mtb_s_qref_qu_pu[case.rank].add(eventTime, eventX1, eventX2)
-                elif mtb_t_qmode[case.rank].s0 == 2:
-                    mtb_s_qref_pf[case.rank].add(eventTime, eventX1, eventX2)
-                elif mtb_t_qmode[case.rank].s0 == 3:
-                    mtb_s_qref_3[case.rank].add(eventTime, eventX1, eventX2)
-                elif mtb_t_qmode[case.rank].s0 == 4:
-                    mtb_s_qref_4[case.rank].add(eventTime, eventX1, eventX2)
-                elif mtb_t_qmode[case.rank].s0 == 5:
-                    mtb_s_qref_5[case.rank].add(eventTime, eventX1, eventX2)
-                elif mtb_t_qmode[case.rank].s0 == 6:
-                    mtb_s_qref_6[case.rank].add(eventTime, eventX1, eventX2)
+                if mtb_t_qmode[case_.rank].s0 == 0:
+                    mtb_s_qref_q_pu[case_.rank].add(eventTime, eventX1, eventX2)
+                elif mtb_t_qmode[case_.rank].s0 == 1:
+                    mtb_s_qref_qu_pu[case_.rank].add(eventTime, eventX1, eventX2)
+                elif mtb_t_qmode[case_.rank].s0 == 2:
+                    mtb_s_qref_pf[case_.rank].add(eventTime, eventX1, eventX2)
+                elif mtb_t_qmode[case_.rank].s0 == 3:
+                    mtb_s_qref_3[case_.rank].add(eventTime, eventX1, eventX2)
+                elif mtb_t_qmode[case_.rank].s0 == 4:
+                    mtb_s_qref_4[case_.rank].add(eventTime, eventX1, eventX2)
+                elif mtb_t_qmode[case_.rank].s0 == 5:
+                    mtb_s_qref_5[case_.rank].add(eventTime, eventX1, eventX2)
+                elif mtb_t_qmode[case_.rank].s0 == 6:
+                    mtb_s_qref_6[case_.rank].add(eventTime, eventX1, eventX2)
                 else:
                     raise ValueError('Invalid Q mode')
 
             elif eventType == 'Voltage':
                 assert isinstance(eventX1, float)
                 assert isinstance(eventX2, float)
-                mtb_s_vref_pu[case.rank].add(eventTime, eventX1, eventX2)
+                mtb_s_vref_pu[case_.rank].add(eventTime, eventX1, eventX2)
 
             elif eventType == 'dVoltage':
                 assert isinstance(eventX1, float)
                 assert isinstance(eventX2, float)
-                mtb_s_dvref_pu[case.rank].add(eventTime, eventX1, eventX2)
+                mtb_s_dvref_pu[case_.rank].add(eventTime, eventX1, eventX2)
 
             elif eventType == 'Phase':
                 assert isinstance(eventX1, float)
                 assert isinstance(eventX2, float)
-                mtb_s_phref_deg[case.rank].add(eventTime, eventX1, eventX2)
+                mtb_s_phref_deg[case_.rank].add(eventTime, eventX1, eventX2)
 
             elif eventType == 'Frequency':
                 assert isinstance(eventX1, float)
                 assert isinstance(eventX2, float)
-                mtb_s_fref_hz[case.rank].add(eventTime, eventX1, eventX2)
+                mtb_s_fref_hz[case_.rank].add(eventTime, eventX1, eventX2)
 
             elif eventType == 'SCR':
                 assert isinstance(eventX1, float)
                 assert isinstance(eventX2, float)
-                mtb_s_scr[case.rank].add(eventTime, eventX1, 0.0)
-                mtb_s_xr[case.rank].add(eventTime, eventX2, 0.0)
+                mtb_s_scr[case_.rank].add(eventTime, eventX1, 0.0)
+                mtb_s_xr[case_.rank].add(eventTime, eventX2, 0.0)
 
             elif eventType.count('fault') > 0 and eventType != 'Clear fault':
                 assert isinstance(eventX1, float)
                 assert isinstance(eventX2, float)
 
-                flt_s_type[case.rank].add(eventTime, FAULT_TYPES[eventType], 0.0)
-                flt_s_type[case.rank].add(eventTime + eventX2, 0.0, 0.0)
-                flt_s_resxf[case.rank].add(eventTime, eventX1, 0.0)
+                flt_s_type[case_.rank].add(eventTime, FAULT_TYPES[eventType], 0.0)
+                flt_s_type[case_.rank].add(eventTime + eventX2, 0.0, 0.0)
+                flt_s_resxf[case_.rank].add(eventTime, eventX1, 0.0)
                 if FAULT_TYPES[eventType] < 7:
-                    ldf_c_iopt_net[case.rank] = 1
-                    inc_c_iopt_net[case.rank] = 'rst'
+                    ldf_c_iopt_net[case_.rank] = 1
+                    inc_c_iopt_net[case_.rank] = 'rst'
 
             elif eventType == 'Clear fault':
-                flt_s_type[case.rank].add(eventTime, 0.0, 0.0)
+                flt_s_type[case_.rank].add(eventTime, 0.0, 0.0)
 
             elif eventType == 'Pref recording':
                 assert isinstance(eventX1, str)
                 assert isinstance(eventX2, float)
-                wf = mtb_s_pref_pu[case.rank] = si.Recorded(path=eventX1, column=1, scale=eventX2, pf=pf, pscad=pscad)
+                wf = mtb_s_pref_pu[case_.rank] = si.Recorded(path=eventX1, column=1, scale=eventX2, pf=pf, pscad=pscad)
                 pscad_lonRec = max(wf.pscadLen, pscad_lonRec)
                 pf_lonRec = max(wf.pfLen, pf_lonRec)
 
@@ -573,29 +573,29 @@ def setup(casesheetPath : str, pscad : bool, pfEncapsulation : Optional[si.PFint
                 assert isinstance(eventX2, float)
                 wf = si.Recorded(path=eventX1, column=1, scale=eventX2, pf=pf, pscad=pscad)
 
-                mtb_s_qref[case.rank] = wf
-                mtb_s_qref_q_pu[case.rank] = 0
-                mtb_s_qref_qu_pu[case.rank] = 0
-                mtb_s_qref_pf[case.rank] = 0
-                mtb_s_qref_3[case.rank] = 0
-                mtb_s_qref_4[case.rank] = 0
-                mtb_s_qref_5[case.rank] = 0
-                mtb_s_qref_6[case.rank] = 0
+                mtb_s_qref[case_.rank] = wf
+                mtb_s_qref_q_pu[case_.rank] = 0
+                mtb_s_qref_qu_pu[case_.rank] = 0
+                mtb_s_qref_pf[case_.rank] = 0
+                mtb_s_qref_3[case_.rank] = 0
+                mtb_s_qref_4[case_.rank] = 0
+                mtb_s_qref_5[case_.rank] = 0
+                mtb_s_qref_6[case_.rank] = 0
 
-                if mtb_t_qmode[case.rank].s0 == 0:
-                    mtb_s_qref_q_pu[case.rank] = wf
-                elif mtb_t_qmode[case.rank].s0 == 1:
-                    mtb_s_qref_qu_pu[case.rank] = wf
-                elif mtb_t_qmode[case.rank].s0 == 2:
-                    mtb_s_qref_pf[case.rank] = wf
-                elif mtb_t_qmode[case.rank].s0 == 3:
-                    mtb_s_qref_3[case.rank] = wf
-                elif mtb_t_qmode[case.rank].s0 == 4:
-                    mtb_s_qref_4[case.rank] = wf
-                elif mtb_t_qmode[case.rank].s0 == 5:
-                    mtb_s_qref_5[case.rank] = wf
-                elif mtb_t_qmode[case.rank].s0 == 6:
-                    mtb_s_qref_6[case.rank] = wf
+                if mtb_t_qmode[case_.rank].s0 == 0:
+                    mtb_s_qref_q_pu[case_.rank] = wf
+                elif mtb_t_qmode[case_.rank].s0 == 1:
+                    mtb_s_qref_qu_pu[case_.rank] = wf
+                elif mtb_t_qmode[case_.rank].s0 == 2:
+                    mtb_s_qref_pf[case_.rank] = wf
+                elif mtb_t_qmode[case_.rank].s0 == 3:
+                    mtb_s_qref_3[case_.rank] = wf
+                elif mtb_t_qmode[case_.rank].s0 == 4:
+                    mtb_s_qref_4[case_.rank] = wf
+                elif mtb_t_qmode[case_.rank].s0 == 5:
+                    mtb_s_qref_5[case_.rank] = wf
+                elif mtb_t_qmode[case_.rank].s0 == 6:
+                    mtb_s_qref_6[case_.rank] = wf
                 else:
                     raise ValueError('Invalid Q mode')
 
@@ -605,32 +605,32 @@ def setup(casesheetPath : str, pscad : bool, pfEncapsulation : Optional[si.PFint
             elif eventType == 'Voltage recording':
                 assert isinstance(eventX1, str)
                 assert isinstance(eventX2, float)
-                if mtb_t_vmode[case.rank].s0 != 2:
-                    mtb_t_vmode[case.rank] = 1
-                wf = mtb_s_vref_pu[case.rank] = si.Recorded(path=eventX1, column=1, scale=eventX2, pf=pf, pscad=pscad)
+                if mtb_t_vmode[case_.rank].s0 != 2:
+                    mtb_t_vmode[case_.rank] = 1
+                wf = mtb_s_vref_pu[case_.rank] = si.Recorded(path=eventX1, column=1, scale=eventX2, pf=pf, pscad=pscad)
                 pscad_lonRec = max(wf.pscadLen, pscad_lonRec)
                 pf_lonRec = max(wf.pfLen, pf_lonRec)
 
             elif eventType == 'Inst. Voltage recording':
                 assert isinstance(eventX1, str)
                 assert isinstance(eventX2, float)
-                mtb_t_vmode[case.rank] = 2
-                mtb_s_varef_pu[case.rank] = si.Recorded(path=eventX1, column=1, scale=eventX2, pf=False, pscad=pscad)
-                mtb_s_vbref_pu[case.rank] = si.Recorded(path=eventX1, column=2, scale=eventX2, pf=False, pscad=pscad)
-                wf = mtb_s_vcref_pu[case.rank] = si.Recorded(path=eventX1, column=3, scale=eventX2, pf=False, pscad=pscad)
+                mtb_t_vmode[case_.rank] = 2
+                mtb_s_varef_pu[case_.rank] = si.Recorded(path=eventX1, column=1, scale=eventX2, pf=False, pscad=pscad)
+                mtb_s_vbref_pu[case_.rank] = si.Recorded(path=eventX1, column=2, scale=eventX2, pf=False, pscad=pscad)
+                wf = mtb_s_vcref_pu[case_.rank] = si.Recorded(path=eventX1, column=3, scale=eventX2, pf=False, pscad=pscad)
                 pscad_lonRec = max(wf.pscadLen, pscad_lonRec)
 
             elif eventType == 'Phase recording':
                 assert isinstance(eventX1, str)
                 assert isinstance(eventX2, float)
-                wf = mtb_s_phref_deg[case.rank] = si.Recorded(path=eventX1, column=1, scale=eventX2, pf=pf, pscad=pscad)
+                wf = mtb_s_phref_deg[case_.rank] = si.Recorded(path=eventX1, column=1, scale=eventX2, pf=pf, pscad=pscad)
                 pscad_lonRec = max(wf.pscadLen, pscad_lonRec)
                 pf_lonRec = max(wf.pfLen, pf_lonRec)
 
             elif eventType == 'Frequency recording':
                 assert isinstance(eventX1, str)
                 assert isinstance(eventX2, float)
-                wf = mtb_s_fref_hz[case.rank] = si.Recorded(path=eventX1, column=1, scale=eventX2, pf=pf, pscad=pscad)
+                wf = mtb_s_fref_hz[case_.rank] = si.Recorded(path=eventX1, column=1, scale=eventX2, pf=pf, pscad=pscad)
                 pscad_lonRec = max(wf.pscadLen, pscad_lonRec)
                 pf_lonRec = max(wf.pfLen, pf_lonRec)
 
@@ -642,42 +642,42 @@ def setup(casesheetPath : str, pscad : bool, pfEncapsulation : Optional[si.PFint
                 if eventType.lower().endswith('recording'):
                     assert isinstance(eventX1, str)
                     assert isinstance(eventX2, float)
-                    wf = customSignal[case.rank] = si.Recorded(path=eventX1, column=1, scale=eventX2, pf=pf, pscad=pscad)
+                    wf = customSignal[case_.rank] = si.Recorded(path=eventX1, column=1, scale=eventX2, pf=pf, pscad=pscad)
                     pscad_lonRec = max(wf.pscadLen, pscad_lonRec)
                     pf_lonRec = max(wf.pfLen, pf_lonRec)
                 else:
                     assert isinstance(eventX1, float)
                     assert isinstance(eventX2, float)
-                    customSignal[case.rank].add(eventTime, eventX1, eventX2)
+                    customSignal[case_.rank].add(eventTime, eventX1, eventX2)
 
             elif eventType  == 'PF disconnect all ref.':
-                ldf_t_refOOS[case.rank] = 1
+                ldf_t_refOOS[case_.rank] = 1
 
             elif eventType == 'PF force asymmetrical':
-                ldf_c_iopt_net[case.rank] = 1
-                inc_c_iopt_net[case.rank] = 'rst'
+                ldf_c_iopt_net[case_.rank] = 1
+                inc_c_iopt_net[case_.rank] = 'rst'
 
-        if isnan(case.Simulationtime) or case.Simulationtime == 0:
-            mtb_t_simtimePf_s[case.rank] = pf_lonRec
-            mtb_t_simtimePscad_s[case.rank] = pscad_lonRec
+        if isnan(case_.Simulationtime) or case_.Simulationtime == 0:
+            mtb_t_simtimePf_s[case_.rank] = pf_lonRec
+            mtb_t_simtimePscad_s[case_.rank] = pscad_lonRec
             
-            if pf_lonRec == 0 and case.RMS:
-                warn(f'Rank: {case.rank}. Powerfactory simulationtime set to 0.0s.')
-            if pscad_lonRec == 0 and case.EMT:
-                warn(f'Rank: {case.rank}. PSCAD simulationtime set to 0.0s.')
+            if pf_lonRec == 0 and case_.RMS:
+                warn(f'Rank: {case_.rank}. Powerfactory simulationtime set to 0.0s.')
+            if pscad_lonRec == 0 and case_.EMT:
+                warn(f'Rank: {case_.rank}. PSCAD simulationtime set to 0.0s.')
         else:
-            mtb_t_simtimePscad_s[case.rank] = case.Simulationtime + plantSettings.PSCAD_init_time
-            mtb_t_simtimePf_s[case.rank] = case.Simulationtime + plantSettings.PF_flat_time
+            mtb_t_simtimePscad_s[case_.rank] = case_.Simulationtime + plantSettings.PSCAD_init_time
+            mtb_t_simtimePf_s[case_.rank] = case_.Simulationtime + plantSettings.PF_flat_time
         
-        if not case.EMT:
-            mtb_t_simtimePscad_s[case.rank] = -1.0
+        if not case_.EMT:
+            mtb_t_simtimePscad_s[case_.rank] = -1.0
         else:
-            emtCases.append(case)
+            emtCases.append(case_)
         
-        if isinstance(mtb_s_vref_pu[case.rank], si.Recorded):
-            ldf_r_vcNode[case.rank] = ''
+        if isinstance(mtb_s_vref_pu[case_.rank], si.Recorded):
+            ldf_r_vcNode[case_.rank] = ''
         else:
-            ldf_r_vcNode[case.rank] = '$nochange$'
+            ldf_r_vcNode[case_.rank] = '$nochange$'
 
     emtCases.sort(key = lambda x: x.Simulationtime)
 
