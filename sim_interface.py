@@ -464,14 +464,31 @@ end subroutine {name}_const"""
             return ''
 
     def addPFsub(self, target : str, attribute : str) -> None:
+        """Add PowerFactory subscription to Constant. 
+        
+        Subscribed target attributes will be assigned Constant.value. 
+
+        Args:
+            target (str): PF object with the attribute to be defined by Constant.
+            attribute (str): Attribute of target to be defined by Constant.
+        """        
         if not (target, attribute) in self.__PFsubs__:
             self.__PFsubs__.append((target, attribute))
 
     @property
     def PFsubs(self):
+        """Attributes that are subscribed (i.e. whose value is defined by) to Constant."""
+
         return self.__PFsubs__
 
     def applyToPF(self, rank : int) -> None:
+        """Write Constant.value to all subscibed targets/attributes.
+
+        Args:
+            rank (int): Rank of the test case.
+
+        Returns: None
+        """        
         if self.pfInterface == None:
             warn(f'Powerfactory interface not set on constant: {self.name}. Ignoring.')
             return None
@@ -671,11 +688,21 @@ end subroutine {{ signal.name }}_signal"""
         else:
             return ''
 
-    def addPFsub_S(self, target : str, attribute : str, func : Optional[Callable[[Signal, float], float]] = None):
+    def addPFsub_S(self, target : str, attribute : str, func : Optional[Callable[[Signal, float], float]] = None):        
         if not (target, attribute, func) in self.__PFsubs_S__:
             self.__PFsubs_S__.append((target, attribute, func))
 
     def addPFsub_S0(self, target : str, attribute : str, func : Optional[Callable[[Signal, float], float]] = None):
+        """Add PowerFactory subscription to ElmFile Signal.
+        
+        Subscribed target attributes will be assigned the waveform of Signal.
+        It originates from a PowerFactory ElmFile object.
+
+        Args:
+            target (str): PF object with the attribute to be defined by Signal.
+            attribute (str): Attribute of the target to be definded by Signal.
+            func (Optional[Callable[[Signal, float], float]], optional): _description_. Defaults to None.
+        """
         if not (target, attribute, func) in self.__PFsubs_S0__:
             self.__PFsubs_S0__.append((target, attribute, func))
 
