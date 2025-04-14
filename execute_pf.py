@@ -3,6 +3,9 @@ Executes the Powerplant model testbench in Powerfactory.
 '''
 from __future__ import annotations 
 DEBUG = True
+EXTERNAL_MODE = True
+PROJECT_NAME = "GridCoco\\energienet_own_example"
+
 import os
 #Ensure right working directory
 executePath = os.path.abspath(__file__)
@@ -29,7 +32,7 @@ sys.path.append(config.pythonPath)
 
 from typing import Optional, Tuple, List, Union
 if getattr(sys, 'gettrace', None) is not None:
-  sys.path.append('C:\\Program Files\\DIgSILENT\\PowerFactory 2024 SP4\\Python\\3.8')
+  sys.path.append('C:\\Program Files\\DIgSILENT\\PowerFactory 2025\\Python\\3.12')
 import powerfactory as pf #type: ignore
 
 import re
@@ -86,7 +89,7 @@ def connectPF() -> Tuple[pf.Application, pf.IntPrj, pf.ComPython, int]:
   app : Optional[pf.Application] = pf.GetApplicationExt()
   if not app:
     raise RuntimeError('No connection to powerfactory application')
-  app.Show()
+  # app.Show()
   app.ClearOutputWindow()
   app.PrintInfo(f'Powerfactory application connected externally. Executable: {sys.executable}')
   app.PrintInfo(f'Imported powerfactory module from {pf.__file__}')
@@ -94,6 +97,9 @@ def connectPF() -> Tuple[pf.Application, pf.IntPrj, pf.ComPython, int]:
   version : str = pf.__version__
   pfVersion = 2000 + int(version.split('.')[0])
   app.PrintInfo(f'Powerfactory version registred: {pfVersion}')
+
+  if EXTERNAL_MODE:
+    app.ActivateProject(PROJECT_NAME)
 
   project : Optional[pf.IntPrj] = app.GetActiveProject() #type: ignore
 
@@ -220,6 +226,7 @@ def setupPlots(app : pf.Application, root : pf.DataObject):
   '''
   Setup the plots for the studycase.
   '''
+  app.Show()
   measurementBlock = root.SearchObject('measurements.ElmDsl') 
   assert measurementBlock is not None
 
@@ -273,6 +280,7 @@ def setupPlots(app : pf.Application, root : pf.DataObject):
   fPlot.DoAutoScale() 
 
   app.WriteChangesToDb()
+  app.Hide()
 
 def addCustomSubscribers(thisScript : pf.ComPython, channels : List[si.Channel]) -> None:
   '''
