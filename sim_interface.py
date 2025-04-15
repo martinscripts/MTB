@@ -1,14 +1,12 @@
 """
-This module contains classes and functions for interfacing with Powerfactory and PSCAD.
-Powerfactory is interfaced through a simple abstraction of the native Powerfactory interface.
-PSCAD is interfaced through rendered fortran code.
+This module contains classes and functions for interfacing with Powerfactory.
+Powerfactory is interfaced through powfacpy.
 """
 
 from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import Union, Dict, List, Tuple, Optional, Callable
 from math import isnan
-from copy import copy
 from warnings import warn
 from os.path import join, split, splitext, exists, abspath
 from os import mkdir
@@ -504,11 +502,6 @@ class Channel(ABC):
     def name(self) -> str: ...
 
 
-class FortranRenderable(ABC):
-    @abstractmethod
-    def renderFortran(self) -> str: ...
-
-
 class PfApplyable(ABC):
     @abstractmethod
     def applyToPF(self, rank: int) -> None: ...
@@ -519,7 +512,7 @@ class PfApplyable(ABC):
 
 
 # CHANNEL TYPES
-class Constant(Channel, FortranRenderable, PfApplyable):
+class Constant(Channel, PfApplyable):
     """
     Constant (irespective of rank and time) value passed to Powerfactory and PSCAD.
     """
@@ -556,12 +549,6 @@ end subroutine {name}_const"""
     def name(self) -> str:
         return self.__name__
 
-    def renderFortran(self) -> str:
-        if self.__PSCAD__:
-            return self.__signalTemplate__
-        else:
-            return ""
-
     def addPFsub(self, target: str, attribute: str) -> None:
         """Add PowerFactory subscription to Constant.
 
@@ -596,17 +583,16 @@ end subroutine {name}_const"""
             self.pfInterface.setAttribute(target, attrib, self.value)
 
 
-class Signal(Channel, FortranRenderable, PfApplyable):
+class Signal(Channel, PfApplyable):
     """
     Dynamic value both in respect to time and rank passed to Powerfactory and PSCAD.
     Each rank can either contain a piecewise defined waveform or a recorded waveform.
     """
 
     def __init__(
-        self, name: str, pscad: bool, pfInterface: Optional[PFinterface]
+        self, name: str, pfInterface: Optional[PFinterface]
     ) -> None:
         self.__name__: str = name
-        self.__PSCAD__: bool = pscad
         self.__waveforms__: Dict[int, Waveform] = dict()
         self.__PFsubs_S__: List[
             Tuple[str, str, Optional[Callable[[Signal, float], float]]]
@@ -622,78 +608,6 @@ class Signal(Channel, FortranRenderable, PfApplyable):
         ] = []
         self.__pfInterface__: Optional[PFinterface] = pfInterface
         self.__ElmFile__: Optional[str] = None  # Optional path to ElmFile object
-
-        self.__signalTemplate__ = """subroutine {{ signal.name }}_signal(rank, y)
-        include 'emtstor.h'
-        include 's1.h'  
-        implicit none
-
-        integer, intent(in) :: rank
-        real, intent(out) ::  y
-        integer :: inrank{% if hasPiecewise %}, events, index{% endif %}
-
-        {% if hasPiecewise %}
-        real  :: tx({{ arraySize }})
-        real :: sy({{ arraySize }})
-        real :: ry({{ arraySize }})
-        {% endif %}
-
-        {% if hasRecorded %}
-        real :: frout(11) 
-        {% endif %}
-
-        if(TIMEZERO) then
-            {% if hasPiecewise %}
-            index = 1
-            {% endif %}
-            inrank = rank
-            STORI(NSTORI + 1) = inrank
-        else    
-            {% if hasPiecewise %}
-            index = STORI(NSTORI)
-            {% endif %}
-            inrank = STORI(NSTORI + 1)
-        endif
-        
-        {% if hasPiecewise %}
-        events = -1
-        {% endif %}
-
-        ranks: select case(inrank)
-        {% for rank in signal.ranks %}
-        {% if isinstance(signal[rank], PiecewiseClass) %}
-        case({{ rank }})
-            tx = {{ signal[rank].t_pscad(arraySize) }}
-            sy = {{ signal[rank].s(arraySize) }}
-            ry = {{ signal[rank].r(arraySize) }}
-            events = {{ signal[rank].len }}         
-        {% elif isinstance(signal[rank], RecordedClass) %}
-        case({{ rank }})
-            NSTORI = NSTORI + 2
-            call FILEREAD2("{{ signal[rank].pscadPath }}", 0, 2, 0, 0, 0.0, 1.0, 0.0, frout)
-            y = frout(2)
-        {% endif %}
-        {% endfor %}
-        case default
-            y = 0.0
-            NSTORI = NSTORI + 5
-            NSTORF = NSTORF + 35
-        end select ranks
-
-        {% if hasPiecewise %}
-        if( events > -1) then
-            if ( index < events ) then
-                if ( TIME >= tx(index + 1) ) then
-                    index = index + 1
-                endif
-            endif
-            y =  sy(index) + (TIME - tx(index)) * ry(index)
-            STORI(NSTORI) = index
-            NSTORI = NSTORI + 5
-            NSTORF = NSTORF + 35
-        endif
-        {% endif %}
-    end subroutine {{ signal.name }}_signal"""
 
     @property
     def name(self):
@@ -730,80 +644,7 @@ class Signal(Channel, FortranRenderable, PfApplyable):
     @property
     def ranks(self):
         return self.__waveforms__.keys()
-
-    def __groupRanks__(self):
-        # TODO: Refactor, this is dirty
-        groups: List[List[Tuple[int, Waveform]]] = []
-        for rank in self.ranks:
-            wf = self[rank]
-            foundGroup = False
-            for group in groups:
-                if (
-                    wf == group[0][1]
-                    or isinstance(wf, Recorded)
-                    and isinstance(group[0][1], Recorded)
-                    and wf.pscadPath == group[0][1].pscadPath
-                ):
-                    group.append((rank, wf))
-                    foundGroup = True
-                    continue
-
-            if not foundGroup:
-                groups.append([(rank, wf)])
-
-        groupedSignal = copy(self)
-        groupedSignal.__waveforms__ = dict()
-
-        for group in groups:
-            group = sorted(group)
-
-            groupIndex = lastPlaced = group[0][0]
-            ranks = f"{group[0][0]}"
-
-            for wave in group[1:]:
-                if wave[0] == groupIndex + 1:
-                    groupIndex = wave[0]
-                else:
-                    if groupIndex == lastPlaced:
-                        ranks += f", {wave[0]}"
-                    elif groupIndex == lastPlaced + 1:
-                        ranks += f",{groupIndex}, {wave[0]}"
-                    else:
-                        ranks += f":{groupIndex}, {wave[0]}"
-
-                    groupIndex = lastPlaced = wave[0]
-
-            if groupIndex == lastPlaced + 1:
-                ranks += f",{groupIndex}"
-            elif groupIndex > lastPlaced:
-                ranks += f":{groupIndex}"
-
-            groupedSignal.__waveforms__[ranks] = group[0][1]  # type: ignore
-        return groupedSignal
-
-    def renderFortran(self) -> str:
-        if self.__PSCAD__:
-            hasPiecewise: bool = False
-            hasRecorded: bool = False
-
-            for rank in self.ranks:
-                wf = self[rank]
-                hasPiecewise = hasPiecewise or isinstance(wf, Piecewise)
-                hasRecorded = hasRecorded or isinstance(wf, Recorded)
-
-            template = jinja2.Environment(loader=jinja2.BaseLoader, trim_blocks=True, lstrip_blocks=True).from_string(self.__signalTemplate__)  # type: ignore
-            return template.render(
-                signal=self.__groupRanks__(),
-                hasPiecewise=hasPiecewise,
-                hasRecorded=hasRecorded,
-                arraySize=self.__arraySize__(),
-                PiecewiseClass=Piecewise,
-                RecordedClass=Recorded,
-                isinstance=isinstance,
-            )
-        else:
-            return ""
-
+        
     def addPFsub_S(
         self,
         target: str,
@@ -982,21 +823,6 @@ class PfObjRefer(String):
 
         for target, attribute in self.__PFsubs__:
             self.pfInterface.setAttribute(target, attribute, self.__strings__[rank])
-
-
-def renderFortran(path: str, channels: List[Channel]) -> None:
-    """
-    Renders all releavant signals and constants in a list to a single fortran file.
-    """
-
-    fortranCode = ""
-    for channel in channels:
-        if isinstance(channel, FortranRenderable):
-            fortranCode += channel.renderFortran() + "\n\n"
-
-    with open(path, mode="w") as f:
-        f.write(fortranCode)
-        f.close()
 
 
 def applyToPowerfactory(channels: List[Channel], rank: int):

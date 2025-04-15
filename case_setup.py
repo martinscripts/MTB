@@ -7,6 +7,7 @@ import pandas as pd
 import sim_interface as si
 from math import isnan, sqrt
 from warnings import warn
+from powfacpy.base.active_project import ActiveProject
 
 FAULT_TYPES = { 
     '3p fault' : 7.0,
@@ -113,7 +114,7 @@ class Case:
             else:
                 break
 
-def setup(casesheetPath : str, pscad : bool, pfEncapsulation : Optional[si.PFinterface]) -> Tuple[PlantSettings, List[si.Channel], List[Case], int, List[Case]]:
+def setup(casesheetPath : str, pscad : bool, powfacpy_interface : Optional[ActiveProject]) -> Tuple[PlantSettings, List[si.Channel], List[Case], int, List[Case]]:
     '''
     Sets up the simulation channels and cases from the given casesheet. Returns plant settings, channels, cases, max rank and emtCases.
     '''
@@ -124,7 +125,7 @@ def setup(casesheetPath : str, pscad : bool, pfEncapsulation : Optional[si.PFint
         return 100.0 * uk, 1000.0 * pcu
 
     def signal(name : str, pscad : bool = True, defaultConnection : bool = True, measFile : bool = False) -> si.Signal:
-        newSignal = si.Signal(name, pscad, pfEncapsulation)
+        newSignal = si.Signal(name, pscad, powfacpy_interface)
         
         if defaultConnection:
             newSignal.addPFsub_S(f'{name}.ElmDsl', 's:x')
@@ -138,21 +139,21 @@ def setup(casesheetPath : str, pscad : bool, pfEncapsulation : Optional[si.PFint
         return newSignal
 
     def constant(name : str, value : float, pscad : bool = True) -> si.Constant:
-        newConstant = si.Constant(name, value, pscad, pfEncapsulation)
+        newConstant = si.Constant(name, value, pscad, powfacpy_interface)
         channels.append(newConstant)
         return newConstant
 
     def pfObjRefer(name : str) -> si.PfObjRefer:
-        newPfObjRefer = si.PfObjRefer(name, pfEncapsulation)
+        newPfObjRefer = si.PfObjRefer(name, powfacpy_interface)
         channels.append(newPfObjRefer)
         return newPfObjRefer
     
     def string(name : str) -> si.String:
-        newString = si.String(name, pfEncapsulation)
+        newString = si.String(name, powfacpy_interface)
         channels.append(newString)
         return newString
     
-    pf = pfEncapsulation is not None
+    pf_exists = powfacpy_interface is not None
 
     channels : List[si.Channel] = []
     plantSettings = PlantSettings(casesheetPath)
@@ -564,14 +565,14 @@ def setup(casesheetPath : str, pscad : bool, pfEncapsulation : Optional[si.PFint
             elif eventType == 'Pref recording':
                 assert isinstance(eventX1, str)
                 assert isinstance(eventX2, float)
-                wf = mtb_s_pref_pu[case_.rank] = si.Recorded(path=eventX1, column=1, scale=eventX2, pf=pf, pscad=pscad)
+                wf = mtb_s_pref_pu[case_.rank] = si.Recorded(path=eventX1, column=1, scale=eventX2, pf=pf_exists, pscad=pscad)
                 pscad_lonRec = max(wf.pscadLen, pscad_lonRec)
                 pf_lonRec = max(wf.pfLen, pf_lonRec)
 
             elif eventType == 'Qref recording':
                 assert isinstance(eventX1, str)
                 assert isinstance(eventX2, float)
-                wf = si.Recorded(path=eventX1, column=1, scale=eventX2, pf=pf, pscad=pscad)
+                wf = si.Recorded(path=eventX1, column=1, scale=eventX2, pf=pf_exists, pscad=pscad)
 
                 mtb_s_qref[case_.rank] = wf
                 mtb_s_qref_q_pu[case_.rank] = 0
@@ -607,7 +608,7 @@ def setup(casesheetPath : str, pscad : bool, pfEncapsulation : Optional[si.PFint
                 assert isinstance(eventX2, float)
                 if mtb_t_vmode[case_.rank].s0 != 2:
                     mtb_t_vmode[case_.rank] = 1
-                wf = mtb_s_vref_pu[case_.rank] = si.Recorded(path=eventX1, column=1, scale=eventX2, pf=pf, pscad=pscad)
+                wf = mtb_s_vref_pu[case_.rank] = si.Recorded(path=eventX1, column=1, scale=eventX2, pf=pf_exists, pscad=pscad)
                 pscad_lonRec = max(wf.pscadLen, pscad_lonRec)
                 pf_lonRec = max(wf.pfLen, pf_lonRec)
 
@@ -623,14 +624,14 @@ def setup(casesheetPath : str, pscad : bool, pfEncapsulation : Optional[si.PFint
             elif eventType == 'Phase recording':
                 assert isinstance(eventX1, str)
                 assert isinstance(eventX2, float)
-                wf = mtb_s_phref_deg[case_.rank] = si.Recorded(path=eventX1, column=1, scale=eventX2, pf=pf, pscad=pscad)
+                wf = mtb_s_phref_deg[case_.rank] = si.Recorded(path=eventX1, column=1, scale=eventX2, pf=pf_exists, pscad=pscad)
                 pscad_lonRec = max(wf.pscadLen, pscad_lonRec)
                 pf_lonRec = max(wf.pfLen, pf_lonRec)
 
             elif eventType == 'Frequency recording':
                 assert isinstance(eventX1, str)
                 assert isinstance(eventX2, float)
-                wf = mtb_s_fref_hz[case_.rank] = si.Recorded(path=eventX1, column=1, scale=eventX2, pf=pf, pscad=pscad)
+                wf = mtb_s_fref_hz[case_.rank] = si.Recorded(path=eventX1, column=1, scale=eventX2, pf=pf_exists, pscad=pscad)
                 pscad_lonRec = max(wf.pscadLen, pscad_lonRec)
                 pf_lonRec = max(wf.pfLen, pf_lonRec)
 
@@ -642,7 +643,7 @@ def setup(casesheetPath : str, pscad : bool, pfEncapsulation : Optional[si.PFint
                 if eventType.lower().endswith('recording'):
                     assert isinstance(eventX1, str)
                     assert isinstance(eventX2, float)
-                    wf = customSignal[case_.rank] = si.Recorded(path=eventX1, column=1, scale=eventX2, pf=pf, pscad=pscad)
+                    wf = customSignal[case_.rank] = si.Recorded(path=eventX1, column=1, scale=eventX2, pf=pf_exists, pscad=pscad)
                     pscad_lonRec = max(wf.pscadLen, pscad_lonRec)
                     pf_lonRec = max(wf.pfLen, pf_lonRec)
                 else:
