@@ -433,7 +433,7 @@ def main():
     # Read and setup cases from sheet
     pfp = ActiveProject(app)
     plantSettings, channels, cases, maxRank, ___ = cs.setup(
-        casesheetPath=config.sheetPath, pscad=False, powfacpy_interface=pfp
+        casesheetPath=config.sheetPath, powfacpy_interface=pfp
     )
 
     # Add user channel subscribers

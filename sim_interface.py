@@ -11,6 +11,7 @@ from warnings import warn
 from os.path import join, split, splitext, exists, abspath
 from os import mkdir
 import pandas as pd
+from powfacpy.base.active_project import ActiveProject
 
 try:
     import powerfactory as pf  # type: ignore
@@ -19,18 +20,11 @@ try:
 except ImportError:
     warn("sim_interface.py: Powerfactory module not found.")
 
-try:
-    import jinja2
-
-    print(f"Imported jinja2 module from {jinja2.__file__}")
-except ImportError:
-    warn("sim_interface.py: jinja2 module not found. (pscad functionality disabled)")
 
 
 MEAS_FILE_FOLDER: str = "MTB_files"  # constant
 
 pf_time_offset: float = 0.0
-pscad_time_offset: float = 0.0
 
 
 class PFinterface(ABC):
@@ -54,7 +48,7 @@ class PFinterface(ABC):
     ) -> None: ...
 
 
-class PFencapsulation(PFinterface):
+class PFencapsulation(ActiveProject):
     """
     Encapsulates Powerfactory native interface. Used to set and get attributes and create parameter events.
     """
@@ -92,6 +86,7 @@ class PFencapsulation(PFinterface):
     def setAttribute(
         self, target: str, attribute: str, value: Union[str, float, int]
     ) -> None:
+        assert False # TODO refactor to powfacpy
         if target == "":
             raise ValueError("Target cannot be empty string.")
 
@@ -150,6 +145,7 @@ class PFencapsulation(PFinterface):
     def getAttribute(
         self, target: str, attribute: str
     ) -> Optional[Union[str, float, int, pf.DataObject]]:
+        assert False # TODO refactor to powfacpy
         if target == "":
             raise ValueError("Target cannot be empty string.")
 
@@ -197,6 +193,7 @@ class PFencapsulation(PFinterface):
     def newParamEvent(
         self, name: str, target: str, attrib: str, value: float, time: float
     ) -> None:
+        assert False # TODO refactor to powfacpy
         studycase = self.__app__.GetActiveStudyCase()
 
         if not studycase:
@@ -277,8 +274,6 @@ class Piecewise(Waveform):
                 break
             i -= 1
 
-    def t_pscad(self, minLength: int = 0) -> List[float]:
-        return self.__tf__(minLength, pscad_time_offset)
 
     def t_pf(self, minLength: int = 0) -> List[float]:
         return self.__tf__(minLength, pf_time_offset)
@@ -323,43 +318,33 @@ class Piecewise(Waveform):
 
 class Recorded(Waveform):
     """
-    Waveform defined in specified column in file. Time must be first column (column = 0). Supports powerfactory ElmFile format, PSCAD legacy .out and .csv with dot decimal and semi-colon seperator.
+    Waveform defined in specified column in file. Time must be first column (column = 0). Supports powerfactory ElmFile format.
     Only used in signal type channel.
     """
 
     def __init__(
-        self, path: str, column: int, pf: bool, pscad: bool, scale: float = 1.0
+        self, path: str, column: int, scale: float = 1.0
     ) -> None:
-        if not pf and not pscad:
-            warn(
-                f"Recorded waveform (source: {path}) is not either set to be pf or pscad or both."
-            )
-
+       
         self.__path__: str = path
         self.__column__: int = column
-        self.__pf__: bool = pf
-        self.__pscad__: bool = pscad
+        self.__pf__: bool = True
         self.__scale__: float = scale
-
         self.__pfPath__: Optional[str] = None
-        self.__pscadPath__: Optional[str] = None
         self.__pfLen__: float = 0.0
-        self.__pscadLen__: float = 0.0
         self.__s0__: float = 0.0
-
         self.__loadFile__()
 
     def __eq__(self, other: object) -> bool:
         if isinstance(other, type(self)):
             return (
                 self.__pfPath__ == other.__pfPath__
-                and self.__pscadPath__ == other.__pscadPath__
             )
         else:
             return False
 
     def __loadFile__(self) -> None:
-        if not self.__pscad__ and not self.__pf__:
+        if not self.__pf__:
             return None
 
         _, pathFilename = split(self.__path__)
@@ -438,26 +423,7 @@ class Recorded(Waveform):
             self.__pfPath__ = recFilePath
             self.__pfLen__ = df.index[-1]  # type: ignore
 
-        if self.__pscad__:
-            if self.__pf__ and pf_time_offset != pscad_time_offset:
-                df.index = time
-
-            if not self.__pf__ or pf_time_offset != pscad_time_offset:
-                df.index = df.index + pscad_time_offset  # type: ignore
-                df.rename(index={df.index[0]: time[0]}, inplace=True)  # type: ignore
-
-            recFilePath = join(
-                MEAS_FILE_FOLDER,
-                f"{pathName}_{self.__column__}_{self.__scale__}_{pscad_time_offset}.out",
-            )
-            measData = df.to_csv(None, sep=" ", header=False, index_label=False).replace("\r\n", "\n")  # type: ignore
-            measData = "\n" + measData
-            f = open(recFilePath, "w")
-            f.write(measData)
-            f.close()
-            self.__pscadPath__ = recFilePath
-            self.__pscadLen__ = df.index[-1]  # type: ignore
-
+        
     @property
     def pfLen(self):
         if self.__pfPath__ == None:
@@ -465,14 +431,6 @@ class Recorded(Waveform):
                 f"Recorded waveform (source: {self.__path__}) pfLen call with pfPath set to None. Returning 0.0."
             )
         return self.__pfLen__
-
-    @property
-    def pscadLen(self):
-        if self.__pscadPath__ == None:
-            warn(
-                f"Recorded waveform (source: {self.__path__}) pscadLen call with pscadPath set to None. Returning 0.0."
-            )
-        return self.__pscadLen__
 
     @property
     def s0(self) -> float:
@@ -483,12 +441,6 @@ class Recorded(Waveform):
         if self.__pfPath__ == None:
             raise RuntimeError("pfPath not set.")
         return self.__pfPath__
-
-    @property
-    def pscadPath(self):
-        if self.__pscadPath__ == None:
-            raise RuntimeError("pscadPath not set.")
-        return self.__pscadPath__
 
     def add(self, t: float, s: float, r: float = 0) -> None:
         warn(
@@ -508,27 +460,25 @@ class PfApplyable(ABC):
 
     @property
     @abstractmethod
-    def pfInterface(self) -> Optional[PFinterface]: ...
+    def pfInterface(self) -> Optional[ActiveProject]: ...
 
 
 # CHANNEL TYPES
 class Constant(Channel, PfApplyable):
     """
-    Constant (irespective of rank and time) value passed to Powerfactory and PSCAD.
+    Constant (irrespective of rank and time) value passed to Powerfactory.
     """
 
     def __init__(
         self,
         name: str,
         value: Union[float, int, bool],
-        pscad: bool,
-        pfInterface: Optional[PFinterface],
+        pfInterface: Optional[ActiveProject],
     ) -> None:
         self.__name__ = name
-        self.__PSCAD__ = pscad
         self.__value__: float = float(value)
         self.__PFsubs__: List[Tuple[str, str]] = []
-        self.__pfInterface__: Optional[PFinterface] = pfInterface
+        self.__pfInterface__: Optional[ActiveProject] = pfInterface
         self.__signalTemplate__: str = f"""subroutine {name}_const(y)
     implicit none
     real, intent(out) :: y
@@ -542,7 +492,7 @@ end subroutine {name}_const"""
         return self.__value__
 
     @property
-    def pfInterface(self) -> Optional[PFinterface]:
+    def pfInterface(self) -> Optional[ActiveProject]:
         return self.__pfInterface__
 
     @property
@@ -585,12 +535,12 @@ end subroutine {name}_const"""
 
 class Signal(Channel, PfApplyable):
     """
-    Dynamic value both in respect to time and rank passed to Powerfactory and PSCAD.
+    Dynamic value both in respect to time and rank passed to Powerfactory.
     Each rank can either contain a piecewise defined waveform or a recorded waveform.
     """
 
     def __init__(
-        self, name: str, pfInterface: Optional[PFinterface]
+        self, name: str, pfInterface: Optional[ActiveProject]
     ) -> None:
         self.__name__: str = name
         self.__waveforms__: Dict[int, Waveform] = dict()
@@ -606,7 +556,7 @@ class Signal(Channel, PfApplyable):
         self.__PFsubs_T__: List[
             Tuple[str, str, Optional[Callable[[Signal, float], float]]]
         ] = []
-        self.__pfInterface__: Optional[PFinterface] = pfInterface
+        self.__pfInterface__: Optional[ActiveProject] = pfInterface
         self.__ElmFile__: Optional[str] = None  # Optional path to ElmFile object
 
     @property
@@ -614,7 +564,7 @@ class Signal(Channel, PfApplyable):
         return self.__name__
 
     @property
-    def pfInterface(self) -> Optional[PFinterface]:
+    def pfInterface(self) -> Optional[ActiveProject]:
         return self.__pfInterface__
 
     @property
@@ -762,18 +712,18 @@ class String(Channel, PfApplyable):
     String value, only dynamic in respect to rank, passed to Powerfactory.
     """
 
-    def __init__(self, name: str, pfInterface: Optional[PFinterface]) -> None:
+    def __init__(self, name: str, pfInterface: Optional[ActiveProject]) -> None:
         self.__name__: str = name
         self.__strings__: Dict[int, str] = dict()
         self.__PFsubs__: List[Tuple[str, str]] = []
-        self.__pfInterface__: Optional[PFinterface] = pfInterface
+        self.__pfInterface__: Optional[ActiveProject] = pfInterface
 
     @property
     def name(self):
         return self.__name__
 
     @property
-    def pfInterface(self) -> Optional[PFinterface]:
+    def pfInterface(self) -> Optional[ActiveProject]:
         return self.__pfInterface__
 
     def __getitem__(self, rank: int) -> str:

@@ -15,7 +15,6 @@ def addCursors(htmlPlots: List[go.Figure],
                resultList: List[Result],
                cursorDict: List[Cursor],
                pfFlatTIme: float,
-               pscadInitTime: float,
                rank: int,
                nColumns: int):
     cursor_settings = [i for i in cursorDict if i.id == rank]
@@ -65,7 +64,7 @@ def addCursors(htmlPlots: List[go.Figure],
 
                 # Determine the time column and offset based on the type
                 timeColName = 'time' if result.typ == ResultType.EMT else data.columns[0]
-                timeoffset = pfFlatTIme if result.typ == ResultType.RMS else pscadInitTime
+                timeoffset = pfFlatTIme
 
                 if sigColumn in data.columns:
                     # Get the signal data and time values

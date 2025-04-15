@@ -1,5 +1,5 @@
 '''
-Contains the specific setup for the testbench. Connecting the waveforms to the PSCAD and PowerFactory interfaces.
+Contains the specific setup for the testbench. Connecting the waveforms to the PowerFactory interface.
 '''
 from __future__ import annotations 
 from typing import Union, Tuple, List, Optional
@@ -65,8 +65,6 @@ class PlantSettings:
         self.R0 = float(inputs['R0'])
         self.X0 = float(inputs['X0'])
         self.Default_Q_mode = str(inputs['Default Q mode'])
-        self.PSCAD_Timestep = float(inputs['PSCAD Timestep'])
-        self.PSCAD_init_time = float(inputs['PSCAD Initialization time'])
         self.PF_flat_time = float(inputs['PF flat time'])
         self.PF_variable_step = bool(inputs['PF variable step'])
         self.PF_enforced_sync = bool(inputs['PF enforced sync.'])
@@ -114,7 +112,7 @@ class Case:
             else:
                 break
 
-def setup(casesheetPath : str, pscad : bool, powfacpy_interface : Optional[ActiveProject]) -> Tuple[PlantSettings, List[si.Channel], List[Case], int, List[Case]]:
+def setup(casesheetPath : str, powfacpy_interface : Optional[ActiveProject]) -> Tuple[PlantSettings, List[si.Channel], List[Case], int, List[Case]]:
     '''
     Sets up the simulation channels and cases from the given casesheet. Returns plant settings, channels, cases, max rank and emtCases.
     '''
@@ -124,8 +122,8 @@ def setup(casesheetPath : str, pscad : bool, powfacpy_interface : Optional[Activ
         uk = (uc*uc)/(un*un)/scr_ if scr >= 0.0 else 0.0
         return 100.0 * uk, 1000.0 * pcu
 
-    def signal(name : str, pscad : bool = True, defaultConnection : bool = True, measFile : bool = False) -> si.Signal:
-        newSignal = si.Signal(name, pscad, powfacpy_interface)
+    def signal(name : str, defaultConnection : bool = True, measFile : bool = False) -> si.Signal:
+        newSignal = si.Signal(name, powfacpy_interface)
         
         if defaultConnection:
             newSignal.addPFsub_S(f'{name}.ElmDsl', 's:x')
@@ -138,8 +136,8 @@ def setup(casesheetPath : str, pscad : bool, powfacpy_interface : Optional[Activ
         channels.append(newSignal)
         return newSignal
 
-    def constant(name : str, value : float, pscad : bool = True) -> si.Constant:
-        newConstant = si.Constant(name, value, pscad, powfacpy_interface)
+    def constant(name : str, value : float) -> si.Constant:
+        newConstant = si.Constant(name, value, powfacpy_interface)
         channels.append(newConstant)
         return newConstant
 
@@ -159,10 +157,8 @@ def setup(casesheetPath : str, pscad : bool, powfacpy_interface : Optional[Activ
     plantSettings = PlantSettings(casesheetPath)
 
     si.pf_time_offset = plantSettings.PF_flat_time
-    si.pscad_time_offset = plantSettings.PSCAD_init_time
 
     # Voltage source control
-    mtb_t_vmode = signal('mtb_t_vmode', defaultConnection = False) # only to be used in PSCAD
     mtb_s_vref_pu = signal('mtb_s_vref_pu', measFile = True)
     mtb_s_vref_pu.addPFsub_S0('vac.ElmVac', 'usetp', lambda _, x : abs(x))
     mtb_s_vref_pu.addPFsub_S0('initializer_script.ComDpl', 'IntExpr:5', lambda _, x : abs(x))
@@ -188,9 +184,9 @@ def setup(casesheetPath : str, pscad : bool, powfacpy_interface : Optional[Activ
     mtb_s_xr.addPFsub_S0('initializer_script.ComDpl', 'IntExpr:12')
     mtb_s_xr.addPFsub_S0('initializer_qdsl.ElmQdsl', 'initVals:12')
 
-    ldf_t_uk = signal('ldf_t_uk', pscad = False, defaultConnection = False)
+    ldf_t_uk = signal('ldf_t_uk', defaultConnection = False)
     ldf_t_uk.addPFsub_S0('z.ElmSind', 'uk')
-    ldf_t_pcu_kw = signal('ldf_t_pcu_kw', pscad = False, defaultConnection = False)
+    ldf_t_pcu_kw = signal('ldf_t_pcu_kw', defaultConnection = False)
     ldf_t_pcu_kw.addPFsub_S0('z.ElmSind', 'Pcu')
 
     # Zero sequence impedance
@@ -250,7 +246,7 @@ def setup(casesheetPath : str, pscad : bool, powfacpy_interface : Optional[Activ
     mtb_c_pn.addPFsub('rx_calc.ElmDsl', 'pn')
     mtb_c_pn.addPFsub('z.ElmSind', 'Sn')
     
-    mtb_c_qn = constant('mtb_c_qn', 0.33 * plantSettings.Pn, pscad = False)
+    mtb_c_qn = constant('mtb_c_qn', 0.33 * plantSettings.Pn)
     mtb_c_qn.addPFsub('station_ctrl.ElmStactrl', 'Srated')
 
     mtb_c_vbase = constant('mtb_c_vbase', plantSettings.Un)
@@ -270,24 +266,18 @@ def setup(casesheetPath : str, pscad : bool, powfacpy_interface : Optional[Activ
     mtb_c_vc.addPFsub('initializer_qdsl.ElmQdsl', 'initVals:2')
     mtb_c_vc.addPFsub('rx_calc.ElmDsl', 'vc')
 
-    constant('mtb_c_inittime_s', plantSettings.PSCAD_init_time)
-
-    mtb_c_flattime_s = constant('mtb_c_flattime_s', plantSettings.PF_flat_time, pscad = False)
+    mtb_c_flattime_s = constant('mtb_c_flattime_s', plantSettings.PF_flat_time)
     mtb_c_flattime_s.addPFsub('initializer_script.ComDpl', 'IntExpr:3')
     mtb_c_flattime_s.addPFsub('initializer_qdsl.ElmQdsl', 'initVals:3')
 
-    mtb_c_vdroop = constant('mtb_c_vdroop', plantSettings.V_droop, pscad = False)
+    mtb_c_vdroop = constant('mtb_c_vdroop', plantSettings.V_droop)
     mtb_c_vdroop.addPFsub('initializer_script.ComDpl', 'IntExpr:10')
     mtb_c_vdroop.addPFsub('initializer_qdsl.ElmQdsl', 'initVals:10')
     mtb_c_vdroop.addPFsub('station_ctrl.ElmStactrl', 'ddroop')
 
     # Time and rank control
-    mtb_t_simtimePscad_s = signal('mtb_t_simtimePscad_s', defaultConnection = False)
     mtb_t_simtimePf_s = signal('mtb_t_simtimePf_s', defaultConnection = False)
     mtb_t_simtimePf_s.addPFsub_S0('$studycase$\\ComSim', 'tstop')
-
-    # From rank to PSCAD task ID
-    mtb_s_task = signal('mtb_s_task', defaultConnection = False)
 
     # Fault
     flt_s_type = signal('flt_s_type')
@@ -332,7 +322,7 @@ def setup(casesheetPath : str, pscad : bool, powfacpy_interface : Optional[Activ
     ldf_r_vcNode.addPFsub('vac.ElmVac', 'contbar')
 
     # Refences outserv time invariants
-    ldf_t_refOOS = signal('ldf_t_refOOS', pscad = False, defaultConnection = False)
+    ldf_t_refOOS = signal('ldf_t_refOOS', defaultConnection = False)
     ldf_t_refOOS.addPFsub_S0('mtb_s_pref_pu.ElmDsl', 'outserv')
     ldf_t_refOOS.addPFsub_S0('mtb_s_qref_q_pu.ElmDsl', 'outserv')
     ldf_t_refOOS.addPFsub_S0('mtb_s_qref_qu_pu.ElmDsl', 'outserv')
@@ -351,58 +341,58 @@ def setup(casesheetPath : str, pscad : bool, powfacpy_interface : Optional[Activ
     ldf_t_refOOS.addPFsub_S0('mtb_s_10.ElmDsl', 'outserv')
 
     # Calculation settings constants and timeVariants
-    ldf_c_iopt_lim = constant('ldf_c_iopt_lim', int(plantSettings.PF_enforce_Q_limits_in_LDF), pscad = False)
+    ldf_c_iopt_lim = constant('ldf_c_iopt_lim', int(plantSettings.PF_enforce_Q_limits_in_LDF))
     ldf_c_iopt_lim.addPFsub('$studycase$\\ComLdf', 'iopt_lim')
 
-    ldf_c_iopt_apdist = constant('ldf_c_iopt_apdist', 1, pscad = False)
+    ldf_c_iopt_apdist = constant('ldf_c_iopt_apdist', 1)
     ldf_c_iopt_apdist.addPFsub('$studycase$\\ComLdf', 'iopt_apdist')
 
-    ldf_c_iPST_at = constant('ldf_c_iPST_at', 1, pscad = False)
+    ldf_c_iPST_at = constant('ldf_c_iPST_at', 1)
     ldf_c_iPST_at.addPFsub('$studycase$\\ComLdf', 'iPST_at')
 
-    ldf_c_iopt_at = constant('ldf_c_iopt_at', 1, pscad = False)
+    ldf_c_iopt_at = constant('ldf_c_iopt_at', 1)
     ldf_c_iopt_at.addPFsub('$studycase$\\ComLdf', 'iopt_at')
 
-    ldf_c_iopt_asht = constant('ldf_c_iopt_asht', 1, pscad = False)
+    ldf_c_iopt_asht = constant('ldf_c_iopt_asht', 1)
     ldf_c_iopt_asht.addPFsub('$studycase$\\ComLdf', 'iopt_asht')
 
-    ldf_c_iopt_plim = constant('ldf_c_iopt_plim', int(plantSettings.PF_enforce_P_limits_in_LDF), pscad = False)
+    ldf_c_iopt_plim = constant('ldf_c_iopt_plim', int(plantSettings.PF_enforce_P_limits_in_LDF))
     ldf_c_iopt_plim.addPFsub('$studycase$\\ComLdf', 'iopt_plim')
 
-    ldf_c_iopt_net = signal('ldf_c_iopt_net', pscad = False, defaultConnection = False) # ldf asymmetrical option boolean
+    ldf_c_iopt_net = signal('ldf_c_iopt_net', defaultConnection = False) # ldf asymmetrical option boolean
     ldf_c_iopt_net.addPFsub_S0('$studycase$\\ComLdf', 'iopt_net')
 
     inc_c_iopt_net = string('inc_c_iopt_net') # inc asymmetrical option 
     inc_c_iopt_net.addPFsub('$studycase$\\ComInc', 'iopt_net')
 
-    inc_c_iopt_show = constant('inc_c_iopt_show', 1, pscad = False)
+    inc_c_iopt_show = constant('inc_c_iopt_show', 1)
     inc_c_iopt_show.addPFsub('$studycase$\\ComInc', 'iopt_show')
 
-    inc_c_dtgrd = constant('inc_c_dtgrd', 0.001, pscad = False)
+    inc_c_dtgrd = constant('inc_c_dtgrd', 0.001)
     inc_c_dtgrd.addPFsub('$studycase$\\ComInc', 'dtgrd')
 
-    inc_c_dtgrd_max = constant('inc_c_dtgrd_max', 0.01, pscad = False)
+    inc_c_dtgrd_max = constant('inc_c_dtgrd_max', 0.01)
     inc_c_dtgrd_max.addPFsub('$studycase$\\ComInc', 'dtgrd_max')
 
-    inc_c_tstart = constant('inc_c_tstart', 0, pscad = False)
+    inc_c_tstart = constant('inc_c_tstart', 0)
     inc_c_tstart.addPFsub('$studycase$\\ComInc', 'tstart')
 
-    inc_c_iopt_sync = constant('inc_c_iopt_sync', plantSettings.PF_enforced_sync, pscad = False) # enforced sync. option
+    inc_c_iopt_sync = constant('inc_c_iopt_sync', plantSettings.PF_enforced_sync) # enforced sync. option
     inc_c_iopt_sync.addPFsub('$studycase$\\ComInc', 'iopt_sync')
 
-    inc_c_syncperiod = constant('inc_c_syncperiod', 0.001, pscad = False)
+    inc_c_syncperiod = constant('inc_c_syncperiod', 0.001)
     inc_c_syncperiod.addPFsub('$studycase$\\ComInc', 'syncperiod')
 
-    inc_c_iopt_adapt = constant('inc_c_iopt_adapt', plantSettings.PF_variable_step, pscad = False) # variable step option
+    inc_c_iopt_adapt = constant('inc_c_iopt_adapt', plantSettings.PF_variable_step) # variable step option
     inc_c_iopt_adapt.addPFsub('$studycase$\\ComInc', 'iopt_adapt')
 
-    inc_c_iopt_lt = constant('inc_c_iopt_lt', 0, pscad = False)
+    inc_c_iopt_lt = constant('inc_c_iopt_lt', 0)
     inc_c_iopt_lt.addPFsub('$studycase$\\ComInc', 'iopt_lt')
 
-    inc_c_errseq = constant('inc_c_errseq', 0.01, pscad = False)
+    inc_c_errseq = constant('inc_c_errseq', 0.01)
     inc_c_errseq.addPFsub('$studycase$\\ComInc', 'errseq')
 
-    inc_c_autocomp = constant('inc_c_autocomp', 0, pscad = False)
+    inc_c_autocomp = constant('inc_c_autocomp', 0)
     inc_c_autocomp.addPFsub('$studycase$\\ComInc', 'automaticCompilation')
 
     df = pd.read_excel(casesheetPath, sheet_name=f'{plantSettings.Casegroup} cases', header=1) # type: ignore
@@ -423,7 +413,7 @@ def setup(casesheetPath : str, pscad : bool, powfacpy_interface : Optional[Activ
 
     for case_ in cases:
         # Simulation time
-        pf_lonRec = pscad_lonRec = 0.0
+        pf_lonRec = 0.0
 
         # PF: Default symmetrical simulation
         ldf_c_iopt_net[case_.rank] = 0
@@ -565,14 +555,13 @@ def setup(casesheetPath : str, pscad : bool, powfacpy_interface : Optional[Activ
             elif eventType == 'Pref recording':
                 assert isinstance(eventX1, str)
                 assert isinstance(eventX2, float)
-                wf = mtb_s_pref_pu[case_.rank] = si.Recorded(path=eventX1, column=1, scale=eventX2, pf=pf_exists, pscad=pscad)
-                pscad_lonRec = max(wf.pscadLen, pscad_lonRec)
+                wf = mtb_s_pref_pu[case_.rank] = si.Recorded(path=eventX1, column=1, scale=eventX2)
                 pf_lonRec = max(wf.pfLen, pf_lonRec)
 
             elif eventType == 'Qref recording':
                 assert isinstance(eventX1, str)
                 assert isinstance(eventX2, float)
-                wf = si.Recorded(path=eventX1, column=1, scale=eventX2, pf=pf_exists, pscad=pscad)
+                wf = si.Recorded(path=eventX1, column=1, scale=eventX2)
 
                 mtb_s_qref[case_.rank] = wf
                 mtb_s_qref_q_pu[case_.rank] = 0
@@ -600,39 +589,24 @@ def setup(casesheetPath : str, pscad : bool, powfacpy_interface : Optional[Activ
                 else:
                     raise ValueError('Invalid Q mode')
 
-                pscad_lonRec = max(wf.pscadLen, pscad_lonRec)
                 pf_lonRec = max(wf.pfLen, pf_lonRec)
 
             elif eventType == 'Voltage recording':
                 assert isinstance(eventX1, str)
                 assert isinstance(eventX2, float)
-                if mtb_t_vmode[case_.rank].s0 != 2:
-                    mtb_t_vmode[case_.rank] = 1
-                wf = mtb_s_vref_pu[case_.rank] = si.Recorded(path=eventX1, column=1, scale=eventX2, pf=pf_exists, pscad=pscad)
-                pscad_lonRec = max(wf.pscadLen, pscad_lonRec)
+                wf = mtb_s_vref_pu[case_.rank] = si.Recorded(path=eventX1, column=1, scale=eventX2)
                 pf_lonRec = max(wf.pfLen, pf_lonRec)
-
-            elif eventType == 'Inst. Voltage recording':
-                assert isinstance(eventX1, str)
-                assert isinstance(eventX2, float)
-                mtb_t_vmode[case_.rank] = 2
-                mtb_s_varef_pu[case_.rank] = si.Recorded(path=eventX1, column=1, scale=eventX2, pf=False, pscad=pscad)
-                mtb_s_vbref_pu[case_.rank] = si.Recorded(path=eventX1, column=2, scale=eventX2, pf=False, pscad=pscad)
-                wf = mtb_s_vcref_pu[case_.rank] = si.Recorded(path=eventX1, column=3, scale=eventX2, pf=False, pscad=pscad)
-                pscad_lonRec = max(wf.pscadLen, pscad_lonRec)
 
             elif eventType == 'Phase recording':
                 assert isinstance(eventX1, str)
                 assert isinstance(eventX2, float)
-                wf = mtb_s_phref_deg[case_.rank] = si.Recorded(path=eventX1, column=1, scale=eventX2, pf=pf_exists, pscad=pscad)
-                pscad_lonRec = max(wf.pscadLen, pscad_lonRec)
+                wf = mtb_s_phref_deg[case_.rank] = si.Recorded(path=eventX1, column=1, scale=eventX2)
                 pf_lonRec = max(wf.pfLen, pf_lonRec)
 
             elif eventType == 'Frequency recording':
                 assert isinstance(eventX1, str)
                 assert isinstance(eventX2, float)
-                wf = mtb_s_fref_hz[case_.rank] = si.Recorded(path=eventX1, column=1, scale=eventX2, pf=pf_exists, pscad=pscad)
-                pscad_lonRec = max(wf.pscadLen, pscad_lonRec)
+                wf = mtb_s_fref_hz[case_.rank] = si.Recorded(path=eventX1, column=1, scale=eventX2)
                 pf_lonRec = max(wf.pfLen, pf_lonRec)
 
             elif eventType.lower().startswith('signal'):
@@ -643,8 +617,7 @@ def setup(casesheetPath : str, pscad : bool, powfacpy_interface : Optional[Activ
                 if eventType.lower().endswith('recording'):
                     assert isinstance(eventX1, str)
                     assert isinstance(eventX2, float)
-                    wf = customSignal[case_.rank] = si.Recorded(path=eventX1, column=1, scale=eventX2, pf=pf_exists, pscad=pscad)
-                    pscad_lonRec = max(wf.pscadLen, pscad_lonRec)
+                    wf = customSignal[case_.rank] = si.Recorded(path=eventX1, column=1, scale=eventX2)
                     pf_lonRec = max(wf.pfLen, pf_lonRec)
                 else:
                     assert isinstance(eventX1, float)
@@ -660,31 +633,17 @@ def setup(casesheetPath : str, pscad : bool, powfacpy_interface : Optional[Activ
 
         if isnan(case_.Simulationtime) or case_.Simulationtime == 0:
             mtb_t_simtimePf_s[case_.rank] = pf_lonRec
-            mtb_t_simtimePscad_s[case_.rank] = pscad_lonRec
             
             if pf_lonRec == 0 and case_.RMS:
                 warn(f'Rank: {case_.rank}. Powerfactory simulationtime set to 0.0s.')
-            if pscad_lonRec == 0 and case_.EMT:
-                warn(f'Rank: {case_.rank}. PSCAD simulationtime set to 0.0s.')
         else:
-            mtb_t_simtimePscad_s[case_.rank] = case_.Simulationtime + plantSettings.PSCAD_init_time
             mtb_t_simtimePf_s[case_.rank] = case_.Simulationtime + plantSettings.PF_flat_time
         
-        if not case_.EMT:
-            mtb_t_simtimePscad_s[case_.rank] = -1.0
-        else:
-            emtCases.append(case_)
         
         if isinstance(mtb_s_vref_pu[case_.rank], si.Recorded):
             ldf_r_vcNode[case_.rank] = ''
         else:
             ldf_r_vcNode[case_.rank] = '$nochange$'
-
     emtCases.sort(key = lambda x: x.Simulationtime)
 
-    taskId = 1
-    for emtCase in emtCases:
-        mtb_s_task[taskId] = emtCase.rank
-        taskId += 1
-    mtb_s_task.__pfInterface__ = None
-    return plantSettings, channels, cases, maxRank, emtCases
+    return plantSettings, channels, cases, maxRank
