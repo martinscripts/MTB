@@ -4,6 +4,7 @@ Powerfactory is interfaced through powfacpy.
 """
 
 from __future__ import annotations
+import globals
 from abc import ABC, abstractmethod
 from typing import Union, Dict, List, Tuple, Optional, Callable
 from math import isnan
@@ -12,6 +13,8 @@ from os.path import join, split, splitext, exists, abspath
 from os import mkdir
 import pandas as pd
 from powfacpy.base.active_project import ActiveProject
+from powfacpy import PFGeneral
+import powerfactory
 
 try:
     import powerfactory as pf  # type: ignore
@@ -21,196 +24,9 @@ except ImportError:
     warn("sim_interface.py: Powerfactory module not found.")
 
 
-
 MEAS_FILE_FOLDER: str = "MTB_files"  # constant
 
 pf_time_offset: float = 0.0
-
-
-class PFinterface(ABC):
-    """
-    Defines interface for encapsulation of Powerfactory native interface.
-    """
-
-    @abstractmethod
-    def setAttribute(
-        self, target: str, attribute: str, value: Union[str, float, int]
-    ) -> None: ...
-
-    @abstractmethod
-    def getAttribute(
-        self, target: str, attribute: str
-    ) -> Optional[Union[str, float, int, pf.DataObject]]: ...
-
-    @abstractmethod
-    def newParamEvent(
-        self, name: str, target: str, attrib: str, value: float, time: float
-    ) -> None: ...
-
-
-class PFencapsulation(ActiveProject):
-    """
-    Encapsulates Powerfactory native interface. Used to set and get attributes and create parameter events.
-    """
-
-    def __init__(self, app: pf.Application, root: pf.DataObject):
-        self.__app__ = app
-        self.__root__ = root
-
-    def __findPfObject__(self, target: str) -> Optional[pf.DataObject]:
-        if target == "":
-            obj = None
-        elif target.startswith("$studycase$\\"):
-            scPath = target.split("\\")[-1]
-            obj = self.__app__.GetFromStudyCase(scPath)
-        elif target.startswith("$parent$\\"):
-            parentPFe = PFencapsulation(self.__app__, self.__root__.GetParent())
-            obj = parentPFe.__findPfObject__(
-                target.lower().replace("$parent$\\", "", 1)
-            )
-        elif target.startswith("\\"):
-            userPFe = PFencapsulation(
-                self.__app__, self.__app__.GetCurrentUser().GetParent()
-            )
-            while target.startswith("\\"):
-                target = target[1:]
-            obj = userPFe.__findPfObject__(target)
-        else:
-            obj = self.__root__.SearchObject(target)
-
-        if obj is None and target != "":
-            raise RuntimeError(f'Object "{target}" not found.')
-
-        return obj
-
-    def setAttribute(
-        self, target: str, attribute: str, value: Union[str, float, int]
-    ) -> None:
-        assert False # TODO refactor to powfacpy
-        if target == "":
-            raise ValueError("Target cannot be empty string.")
-
-        obj = self.__findPfObject__(target)
-        assert obj is not None
-
-        attribTypes = pf.DataObject.AttributeType
-        objAttribType = obj.GetAttributeType(attribute)
-
-        if objAttribType == attribTypes.INVALID:
-            raise KeyError(
-                f"Attribute {attribute} not found in object {obj.GetFullName(0)}"
-            )
-
-        if (
-            objAttribType == attribTypes.OBJECT
-            or objAttribType == attribTypes.OBJECT_VEC
-        ):
-            if isinstance(value, str):
-                newValue = self.__findPfObject__(value)
-            else:
-                raise TypeError(
-                    "Attribute is of type OBJECT or OBJECT_VEC. Value must be a string containing the path to the set object."
-                )
-
-            obj.SetAttribute(attribute, newValue)
-
-        elif (
-            objAttribType == attribTypes.STRING
-            or objAttribType == attribTypes.STRING_VEC
-        ):
-            obj.SetAttribute(attribute, str(value))
-
-        elif (
-            objAttribType == attribTypes.DOUBLE
-            or objAttribType == attribTypes.DOUBLE_MAT
-            or objAttribType == attribTypes.DOUBLE_VEC
-        ):
-            obj.SetAttribute(attribute, float(value))  # type: ignore
-
-        elif (
-            objAttribType == attribTypes.INTEGER
-            or objAttribType == attribTypes.INTEGER_VEC
-            or objAttribType == attribTypes.INTEGER64
-            or objAttribType == attribTypes.INTEGER64_VEC
-        ):
-            obj.SetAttribute(attribute, int(value))  # type: ignore
-
-        else:
-            raise RuntimeError(
-                f"Attribute {attribute} of type {objAttribType} not supported."
-            )
-
-        # self.__app__.WriteChangesToDb()
-
-    def getAttribute(
-        self, target: str, attribute: str
-    ) -> Optional[Union[str, float, int, pf.DataObject]]:
-        assert False # TODO refactor to powfacpy
-        if target == "":
-            raise ValueError("Target cannot be empty string.")
-
-        obj = self.__findPfObject__(target)
-        assert obj is not None
-
-        attribTypes = pf.DataObject.AttributeType
-        objAttribType = obj.GetAttributeType(attribute)
-
-        if objAttribType == attribTypes.INVALID:
-            raise KeyError(
-                f"Attribute {attribute} not found in object {obj.GetFullName(0)}"
-            )
-
-        value = obj.GetAttribute(attribute)
-
-        if (
-            objAttribType == attribTypes.OBJECT
-            or objAttribType == attribTypes.OBJECT_VEC
-        ):
-            return value
-        elif (
-            objAttribType == attribTypes.STRING
-            or objAttribType == attribTypes.STRING_VEC
-        ):
-            return str(value)
-        elif (
-            objAttribType == attribTypes.DOUBLE
-            or objAttribType == attribTypes.DOUBLE_MAT
-            or objAttribType == attribTypes.DOUBLE_VEC
-        ):
-            return float(value)
-        elif (
-            objAttribType == attribTypes.INTEGER
-            or objAttribType == attribTypes.INTEGER_VEC
-            or objAttribType == attribTypes.INTEGER64
-            or objAttribType == attribTypes.INTEGER64_VEC
-        ):
-            return int(value)
-        else:
-            raise RuntimeError(
-                f"Attribute {attribute} of type {objAttribType} not supported."
-            )
-
-    def newParamEvent(
-        self, name: str, target: str, attrib: str, value: float, time: float
-    ) -> None:
-        assert False # TODO refactor to powfacpy
-        studycase = self.__app__.GetActiveStudyCase()
-
-        if not studycase:
-            raise RuntimeError("No studycase active. Cannot create parameter event.")
-
-        eventFolder = self.__app__.GetFromStudyCase("IntEvt")
-        if not eventFolder:
-            eventFolder = studycase.CreateObject("IntEvt")
-        assert eventFolder is not None
-
-        event: pf.DataObject = eventFolder.CreateObject("EvtParam", name)
-        obj = self.__findPfObject__(target)
-        event.SetAttribute("p_target", obj)
-        event.SetAttribute("time", time)
-        event.SetAttribute("variable", attrib)
-        event.SetAttribute("value", str(value))
-        # self.__app__.WriteChangesToDb()
 
 
 class Waveform(ABC):
@@ -274,7 +90,6 @@ class Piecewise(Waveform):
                 break
             i -= 1
 
-
     def t_pf(self, minLength: int = 0) -> List[float]:
         return self.__tf__(minLength, pf_time_offset)
 
@@ -322,24 +137,20 @@ class Recorded(Waveform):
     Only used in signal type channel.
     """
 
-    def __init__(
-        self, path: str, column: int, scale: float = 1.0
-    ) -> None:
-       
+    def __init__(self, path: str, column: int, scale: float = 1.0) -> None:
+
         self.__path__: str = path
         self.__column__: int = column
         self.__pf__: bool = True
         self.__scale__: float = scale
-        self.__pfPath__: Optional[str] = None
+        self.__pf_path__: Optional[str] = None
         self.__pfLen__: float = 0.0
         self.__s0__: float = 0.0
         self.__loadFile__()
 
     def __eq__(self, other: object) -> bool:
         if isinstance(other, type(self)):
-            return (
-                self.__pfPath__ == other.__pfPath__
-            )
+            return self.__pf_path__ == other.__pf_path__
         else:
             return False
 
@@ -420,13 +231,12 @@ class Recorded(Waveform):
             f = open(recFilePath, "w")
             f.write(measData)
             f.close()
-            self.__pfPath__ = recFilePath
+            self.__pf_path__ = recFilePath
             self.__pfLen__ = df.index[-1]  # type: ignore
 
-        
     @property
-    def pfLen(self):
-        if self.__pfPath__ == None:
+    def pf_len(self):
+        if self.__pf_path__ is None:
             warn(
                 f"Recorded waveform (source: {self.__path__}) pfLen call with pfPath set to None. Returning 0.0."
             )
@@ -437,10 +247,10 @@ class Recorded(Waveform):
         return self.__s0__
 
     @property
-    def pfPath(self):
-        if self.__pfPath__ == None:
+    def pf_path(self):
+        if self.__pf_path__ is None:
             raise RuntimeError("pfPath not set.")
-        return self.__pfPath__
+        return self.__pf_path__
 
     def add(self, t: float, s: float, r: float = 0) -> None:
         warn(
@@ -456,11 +266,89 @@ class Channel(ABC):
 
 class PfApplyable(ABC):
     @abstractmethod
-    def applyToPF(self, rank: int) -> None: ...
+    def apply_to_pf(self, rank: int) -> None: ...
 
-    @property
-    @abstractmethod
-    def pfInterface(self) -> Optional[ActiveProject]: ...
+    def parse_target_string(self, target: str):
+        """If target string starts with $studycase\\$, the object will be taken from active study case.
+        Otherwise, the object is found in the model test bench grid folder.
+
+        Args:
+            target (str): Target string
+
+        Returns:
+            PFGeneral: Target object
+        """
+        if target.startswith("$studycase$\\"):
+            classname = target.split("\\")[-1]
+            return globals.pfp.app.GetFromStudyCase(classname)
+        else:
+            return globals.pfp.get_unique_obj(
+                target, include_subfolders=True, parent_folder=globals.mtb
+            )
+
+    def parse_attribute_value_type(
+        self, target: PFGeneral, attribute: str, value: Union[int, str, float]
+    ):
+        """Returns value of attribute of target in the correct data type.
+
+        Args:
+            target (PFGeneral): Target PowerFactory object
+            attribute (str): Attribute name
+            value (Union[int, str, float]): Attribute value
+
+        Raises:
+            KeyError: If attribute not available for target.
+            TypeError: If value type other than str is given to be converted into PFGeneral.
+            RuntimeError: If attribute type not know.
+
+        Returns:
+            Union[int, str, float, PFGeneral]: Value in correct type.
+        """
+        attribute_types = powerfactory.DataObject.AttributeType
+        this_attribute_type = target.GetAttributeType(attribute)
+
+        if this_attribute_type == attribute_types.INVALID:
+            raise KeyError(
+                f"Attribute {attribute} not found in object {target.GetFullName(0)}"
+            )
+
+        if (
+            this_attribute_type == attribute_types.OBJECT
+            or this_attribute_type == attribute_types.OBJECT_VEC
+        ):
+            if not isinstance(value, str):
+                raise TypeError(
+                    "Attribute is of type OBJECT or OBJECT_VEC. Value must be a string containing the path to the set object."
+                )
+            return globals.pfp.get_unique_obj(
+                value, parent_folder=globals.mtb, include_subfolders=True
+            )
+
+        elif (
+            this_attribute_type == attribute_types.STRING
+            or this_attribute_type == attribute_types.STRING_VEC
+        ):
+            return str(value)
+
+        elif (
+            this_attribute_type == attribute_types.DOUBLE
+            or this_attribute_type == attribute_types.DOUBLE_MAT
+            or this_attribute_type == attribute_types.DOUBLE_VEC
+        ):
+            return float(value)
+
+        elif (
+            this_attribute_type == attribute_types.INTEGER
+            or this_attribute_type == attribute_types.INTEGER_VEC
+            or this_attribute_type == attribute_types.INTEGER64
+            or this_attribute_type == attribute_types.INTEGER64_VEC
+        ):
+            return int(value)
+
+        else:
+            raise RuntimeError(
+                f"Attribute {attribute} of type {this_attribute_type} not supported."
+            )
 
 
 # CHANNEL TYPES
@@ -473,13 +361,11 @@ class Constant(Channel, PfApplyable):
         self,
         name: str,
         value: Union[float, int, bool],
-        pfInterface: Optional[ActiveProject],
     ) -> None:
         self.__name__ = name
         self.__value__: float = float(value)
-        self.__PFsubs__: List[Tuple[str, str]] = []
-        self.__pfInterface__: Optional[ActiveProject] = pfInterface
-        self.__signalTemplate__: str = f"""subroutine {name}_const(y)
+        self.__pf_subs__: List[Tuple[str, str]] = []
+        self.__signal_template__: str = f"""subroutine {name}_const(y)
     implicit none
     real, intent(out) :: y
 
@@ -492,32 +378,28 @@ end subroutine {name}_const"""
         return self.__value__
 
     @property
-    def pfInterface(self) -> Optional[ActiveProject]:
-        return self.__pfInterface__
-
-    @property
     def name(self) -> str:
         return self.__name__
 
-    def addPFsub(self, target: str, attribute: str) -> None:
+    def add_pf_sub(self, target: str, attribute: str) -> None:
         """Add PowerFactory subscription to Constant.
 
         Subscribed target attributes will be assigned Constant.value.
 
         Args:
-            target (str): PF object with the attribute to be defined by Constant.
+            target (Union[PFGeneral, str]): PF object with the attribute to be defined by Constant.
             attribute (str): Attribute of target to be defined by Constant.
         """
-        if not (target, attribute) in self.__PFsubs__:
-            self.__PFsubs__.append((target, attribute))
+        if not (target, attribute) in self.__pf_subs__:
+            self.__pf_subs__.append((target, attribute))
 
     @property
-    def PFsubs(self):
+    def pf_subs(self):
         """Attributes that are subscribed (i.e. whose value is defined by) to Constant."""
 
-        return self.__PFsubs__
+        return self.__pf_subs__
 
-    def applyToPF(self, rank: int) -> None:
+    def apply_to_pf(self, rank: int) -> None:
         """Write Constant.value to all subscibed targets/attributes.
 
         Args:
@@ -525,12 +407,11 @@ end subroutine {name}_const"""
 
         Returns: None
         """
-        if self.pfInterface == None:
-            warn(f"Powerfactory interface not set on constant: {self.name}. Ignoring.")
-            return None
 
-        for target, attrib in self.__PFsubs__:
-            self.pfInterface.setAttribute(target, attrib, self.value)
+        for target, attrib in self.__pf_subs__:
+            target = self.parse_target_string(target)
+            attrib_value = self.parse_attribute_value_type(target, attrib, self.value)
+            globals.pfp.set_attr(target, {attrib: attrib_value})
 
 
 class Signal(Channel, PfApplyable):
@@ -539,40 +420,34 @@ class Signal(Channel, PfApplyable):
     Each rank can either contain a piecewise defined waveform or a recorded waveform.
     """
 
-    def __init__(
-        self, name: str, pfInterface: Optional[ActiveProject]
-    ) -> None:
+    def __init__(self, name: str) -> None:
         self.__name__: str = name
         self.__waveforms__: Dict[int, Waveform] = dict()
-        self.__PFsubs_S__: List[
-            Tuple[str, str, Optional[Callable[[Signal, float], float]]]
+        self.__pf_subs_s__: List[
+            Tuple[PFGeneral, str, Optional[Callable[[Signal, float], float]]]
         ] = []
-        self.__PFsubs_S0__: List[
-            Tuple[str, str, Optional[Callable[[Signal, float], float]]]
+        self.__pf_subscriptions_s0__: List[
+            Tuple[PFGeneral, str, Optional[Callable[[Signal, float], float]]]
         ] = []
-        self.__PFsubs_R__: List[
-            Tuple[str, str, Optional[Callable[[Signal, float], float]]]
+        self.__pf_subscriptions_r__: List[
+            Tuple[PFGeneral, str, Optional[Callable[[Signal, float], float]]]
         ] = []
-        self.__PFsubs_T__: List[
-            Tuple[str, str, Optional[Callable[[Signal, float], float]]]
+        self.__pf_subscriptions_t__: List[
+            Tuple[PFGeneral, str, Optional[Callable[[Signal, float], float]]]
         ] = []
-        self.__pfInterface__: Optional[ActiveProject] = pfInterface
-        self.__ElmFile__: Optional[str] = None  # Optional path to ElmFile object
+        self.__pfp__: Optional[ActiveProject] = globals.pfp
+        self.__elmfile__: Optional[PFGeneral] = None
 
     @property
     def name(self):
         return self.__name__
 
     @property
-    def pfInterface(self) -> Optional[ActiveProject]:
-        return self.__pfInterface__
+    def elmfile(self):
+        return self.__elmfile__
 
-    @property
-    def ElmFile(self):
-        return self.__ElmFile__
-
-    def setElmFile(self, path: str) -> None:
-        self.__ElmFile__ = path
+    def set_elmfile(self, file: str) -> None:
+        self.__elmfile__ = file
 
     def __setitem__(self, rank: int, wave: Union[Waveform, float, int]) -> None:
         if isinstance(wave, float) or isinstance(wave, int):
@@ -582,29 +457,29 @@ class Signal(Channel, PfApplyable):
     def __getitem__(self, rank: int) -> Waveform:
         return self.__waveforms__[rank]
 
-    def __arraySize__(self) -> int:
-        maxLength = -1
+    def __array_size__(self) -> int:
+        max_length = -1
         for rank in self.ranks:
             wf = self[rank]
             if isinstance(wf, Piecewise):
-                maxLength = max(wf.len, maxLength)
+                max_length = max(wf.len, max_length)
 
-        return maxLength
+        return max_length
 
     @property
     def ranks(self):
         return self.__waveforms__.keys()
-        
-    def addPFsub_S(
+
+    def add_pf_sub_s(
         self,
         target: str,
         attribute: str,
         func: Optional[Callable[[Signal, float], float]] = None,
     ):
-        if not (target, attribute, func) in self.__PFsubs_S__:
-            self.__PFsubs_S__.append((target, attribute, func))
+        if not (target, attribute, func) in self.__pf_subs_s__:
+            self.__pf_subs_s__.append((target, attribute, func))
 
-    def addPFsub_S0(
+    def add_pf_sub_s0(
         self,
         target: str,
         attribute: str,
@@ -620,79 +495,95 @@ class Signal(Channel, PfApplyable):
             attribute (str): Attribute of the target to be definded by Signal.
             func (Optional[Callable[[Signal, float], float]], optional): _description_. Defaults to None.
         """
-        if not (target, attribute, func) in self.__PFsubs_S0__:
-            self.__PFsubs_S0__.append((target, attribute, func))
+        if not (target, attribute, func) in self.__pf_subscriptions_s0__:
+            self.__pf_subscriptions_s0__.append((target, attribute, func))
 
-    def addPFsub_R(
+    def add_pf_sub_r(
         self,
         target: str,
         attribute: str,
         func: Optional[Callable[[Signal, float], float]] = None,
     ):
-        if not (target, attribute, func) in self.__PFsubs_R__:
-            self.__PFsubs_R__.append((target, attribute, func))
+        if not (target, attribute, func) in self.__pf_subscriptions_r__:
+            self.__pf_subscriptions_r__.append((target, attribute, func))
 
-    def addPFsub_T(
+    def add_pf_sub_t(
         self,
         target: str,
         attribute: str,
         func: Optional[Callable[[Signal, float], float]] = None,
     ):
-        if not (target, attribute, func) in self.__PFsubs_T__:
-            self.__PFsubs_T__.append((target, attribute, func))
+        if not (target, attribute, func) in self.__pf_subscriptions_t__:
+            self.__pf_subscriptions_t__.append((target, attribute, func))
 
-    def applyToPF(self, rank: int) -> None:
-        if self.pfInterface == None:
-            warn(f"Powerfactory interface not set on signal: {self.name}. Ignoring.")
-            return None
+    def apply_to_pf(self, rank: int) -> None:
+        _ = globals.pfp.app.GetFromStudyCase("ComInc").Execute()
 
         wf = self.__waveforms__[rank]
 
         if isinstance(wf, Piecewise):
-            for target, attrib, func in self.__PFsubs_S__:
+            for target, attrib, func in self.__pf_subs_s__:
+                target = self.parse_target_string(target)
                 for i in range(wf.len):
                     if wf.t_pf(0)[i] != 0.0:
                         if func != None:
-                            attValue = func(self, wf.s(0)[i])
+                            attrib_value = func(self, wf.s(0)[i])
                         else:
-                            attValue = wf.s(0)[i]
-
-                        self.pfInterface.newParamEvent(
-                            f"{self.name}_s", target, attrib, attValue, wf.t_pf(0)[i]
+                            attrib_value = wf.s(0)[i]
+                        attrib_value = self.parse_attribute_value_type(
+                            target, attrib, attrib_value
+                        )
+                        globals.pfdyn.create_event(
+                            f"{self.name}_s.EvtParam",
+                            {
+                                "p_target": target,
+                                "time": wf.t_pf(0)[i],
+                                "variable": attrib,
+                                "value": str(attrib_value),
+                            },
                         )
 
-            for target, attrib, func in self.__PFsubs_R__:
+            for target, attrib, func in self.__pf_subscriptions_r__:
+                target = self.parse_target_string(target)
                 for i in range(wf.len):
                     if wf.t_pf(0)[i] != 0.0:
                         if func != None:
-                            attValue = func(self, wf.r(0)[i])
+                            attrib_value = func(self, wf.r(0)[i])
                         else:
-                            attValue = wf.r(0)[i]
-
-                        self.pfInterface.newParamEvent(
-                            f"{self.name}_s", target, attrib, attValue, wf.t_pf(0)[i]
+                            attrib_value = wf.r(0)[i]
+                        attrib_value = self.parse_attribute_value_type(
+                            target, attrib, attrib_value
+                        )
+                        globals.pfdyn.create_event(
+                            f"{self.name}_s.EvtParam",
+                            {
+                                "p_target": target,
+                                "time": wf.t_pf(0)[i],
+                                "variable": attrib,
+                                "value": str(attrib_value),
+                            },
                         )
 
-            if self.ElmFile != None:
-                self.pfInterface.setAttribute(self.ElmFile, "e:outserv", 1)
-                self.pfInterface.setAttribute(self.ElmFile, "e:f_name", "")
+            if self.elmfile != None:
+                globals.pfp.set_attr(self.elmfile, {"e:outserv": 1, "e:f_name": ""})
 
         elif isinstance(wf, Recorded):
-            if self.ElmFile != None:
-                self.pfInterface.setAttribute(self.ElmFile, "e:outserv", 0)
-                self.pfInterface.setAttribute(
-                    self.ElmFile, "e:f_name", abspath(wf.pfPath)
+            if self.elmfile != None:
+                globals.pfp.set_attr(
+                    self.elmfile, {"e:outserv": 0, "e:f_name": abspath(wf.pf_path)}
                 )
 
-        for target, attrib, func in self.__PFsubs_S0__:
+        for target, attrib, func in self.__pf_subscriptions_s0__:
+            target = self.parse_target_string(target)
             if func != None:
-                attValue = func(self, wf.s0)
+                attrib_value = func(self, wf.s0)
             else:
-                attValue = wf.s0
+                attrib_value = wf.s0
+            attrib_value = self.parse_attribute_value_type(target, attrib, attrib_value)
+            globals.pfp.set_attr(target, {attrib: attrib_value})
 
-            self.pfInterface.setAttribute(target, attrib, attValue)
-
-        for target, attrib, func in self.__PFsubs_T__:
+        for target, attrib, func in self.__pf_subscriptions_t__:
+            target = self.parse_target_string(target)
             if isinstance(wf, Piecewise):
                 typ = 0.0
             else:
@@ -700,11 +591,11 @@ class Signal(Channel, PfApplyable):
                 typ = 1.0
 
             if func != None:
-                attValue = func(self, typ)
+                attrib_value = func(self, typ)
             else:
-                attValue = typ
-
-            self.pfInterface.setAttribute(target, attrib, attValue)
+                attrib_value = typ
+            attrib_value = self.parse_attribute_value_type(target, attrib, attrib_value)
+            globals.pfp.set_attr(target, {attrib: attrib_value})
 
 
 class String(Channel, PfApplyable):
@@ -712,19 +603,14 @@ class String(Channel, PfApplyable):
     String value, only dynamic in respect to rank, passed to Powerfactory.
     """
 
-    def __init__(self, name: str, pfInterface: Optional[ActiveProject]) -> None:
+    def __init__(self, name: str) -> None:
         self.__name__: str = name
         self.__strings__: Dict[int, str] = dict()
-        self.__PFsubs__: List[Tuple[str, str]] = []
-        self.__pfInterface__: Optional[ActiveProject] = pfInterface
+        self.__pf_subs__: List[Tuple[str, str]] = []
 
     @property
     def name(self):
         return self.__name__
-
-    @property
-    def pfInterface(self) -> Optional[ActiveProject]:
-        return self.__pfInterface__
 
     def __getitem__(self, rank: int) -> str:
         return self.__strings__[rank]
@@ -739,21 +625,25 @@ class String(Channel, PfApplyable):
     def ranks(self):
         return self.__strings__.keys()
 
-    def addPFsub(self, target: str, attribute: str):
-        if not (target, attribute) in self.__PFsubs__:
-            self.__PFsubs__.append((target, attribute))
+    def add_pf_sub(self, target: str, attribute: str):
+        if not (target, attribute) in self.__pf_subs__:
+            self.__pf_subs__.append((target, attribute))
 
     @property
-    def PFsubs(self):
-        return self.__PFsubs__
+    def pf_subs(self):
+        return self.__pf_subs__
 
-    def applyToPF(self, rank: int) -> None:
-        if self.pfInterface == None:
+    def apply_to_pf(self, rank: int) -> None:
+        if globals.pfp is None:
             warn(f"Powerfactory interface not set on string: {self.name}. Ignoring.")
             return None
 
-        for target, attribute in self.__PFsubs__:
-            self.pfInterface.setAttribute(target, attribute, self.__strings__[rank])
+        for target, attribute in self.__pf_subs__:
+            target = self.parse_target_string(target)
+            attrib_value = self.parse_attribute_value_type(
+                target, attribute, self.__strings__[rank]
+            )
+            globals.pfp.set_attr(target, {attribute: attrib_value})
 
 
 class PfObjRefer(String):
@@ -761,8 +651,8 @@ class PfObjRefer(String):
     Powerfactory object reference dynamic in respect to rank. Reference defined as path relative to rootobject passed to .applyToPF function.
     """
 
-    def applyToPF(self, rank: int) -> None:
-        if self.pfInterface == None:
+    def apply_to_pf(self, rank: int) -> None:
+        if globals.pfp is None:
             warn(
                 f"Powerfactory interface not set on PfObjRefer: {self.name}. Ignoring."
             )
@@ -771,14 +661,18 @@ class PfObjRefer(String):
         if self.__strings__[rank] == "$nochange$":
             return None
 
-        for target, attribute in self.__PFsubs__:
-            self.pfInterface.setAttribute(target, attribute, self.__strings__[rank])
+        for target, attribute in self.__pf_subs__:
+            target = self.parse_target_string(target)
+            attrib_value = self.parse_attribute_value_type(
+                target, attribute, self.__strings__[rank]
+            )
+            globals.pfp.set_attr(target, {attribute: attrib_value})
 
 
-def applyToPowerfactory(channels: List[Channel], rank: int):
+def apply_to_powerfactory(channels: List[Channel], rank: int):
     """
     Apply all channel setups in list to Powerfactory.
     """
     for channel in channels:
         if isinstance(channel, PfApplyable):
-            channel.applyToPF(rank)
+            channel.apply_to_pf(rank)
