@@ -141,16 +141,16 @@ def setup(
         uk = (uc * uc) / (un * un) / scr_ if scr >= 0.0 else 0.0
         return 100.0 * uk, 1000.0 * pcu
 
-    def signal(
+    def add_signal_to_channels(
         name: str, defaultConnection: bool = True, measFile: bool = False
     ) -> si.Signal:
         newSignal = si.Signal(name)
 
         if defaultConnection:
-            newSignal.add_pf_sub_s(f"{name}.ElmDsl", "s:x")
-            newSignal.add_pf_sub_r(f"{name}.ElmDsl", "slope")
-            newSignal.add_pf_sub_s0(f"{name}.ElmDsl", "x0")
-            newSignal.add_pf_sub_t(f"{name}.ElmDsl", "mode")
+            newSignal.add_pf_sub_value(f"{name}.ElmDsl", "s:x")
+            newSignal.add_pf_sub_ramp(f"{name}.ElmDsl", "slope")
+            newSignal.add_pf_sub_value0(f"{name}.ElmDsl", "x0")
+            newSignal.add_pf_sub_mode(f"{name}.ElmDsl", "mode")
         if measFile:
             newSignal.set_elmfile(
                 globals.pfp.get_unique_obj(
@@ -163,17 +163,17 @@ def setup(
         channels.append(newSignal)
         return newSignal
 
-    def constant(name: str, value: float) -> si.Constant:
+    def add_constant_to_channels(name: str, value: float) -> si.Constant:
         newConstant = si.Constant(name, value)
         channels.append(newConstant)
         return newConstant
 
-    def pfObjRefer(name: str) -> si.PfObjRefer:
+    def add_pf_obj_refer_to_channels(name: str) -> si.PfObjRefer:
         newPfObjRefer = si.PfObjRefer(name)
         channels.append(newPfObjRefer)
         return newPfObjRefer
 
-    def string(name: str) -> si.String:
+    def add_string_to_channels(name: str) -> si.String:
         newString = si.String(name)
         channels.append(newString)
         return newString
@@ -184,88 +184,88 @@ def setup(
     si.pf_time_offset = plantSettings.PF_flat_time
 
     # Voltage source control
-    mtb_s_vref_pu = signal("mtb_s_vref_pu", measFile=True)
-    mtb_s_vref_pu.add_pf_sub_s0("vac.ElmVac", "usetp", lambda _, x: abs(x))
-    mtb_s_vref_pu.add_pf_sub_s0(
+    mtb_s_vref_pu = add_signal_to_channels("mtb_s_vref_pu", measFile=True)
+    mtb_s_vref_pu.add_pf_sub_value0("vac.ElmVac", "usetp", lambda _, x: abs(x))
+    mtb_s_vref_pu.add_pf_sub_value0(
         "initializer_script.ComDpl", "IntExpr:5", lambda _, x: abs(x)
     )
-    mtb_s_vref_pu.add_pf_sub_s0(
+    mtb_s_vref_pu.add_pf_sub_value0(
         "initializer_qdsl.ElmQdsl", "initVals:5", lambda _, x: abs(x)
     )
-    mtb_s_vref_pu.add_pf_sub_t(
+    mtb_s_vref_pu.add_pf_sub_mode(
         "initializer_script.ComDpl", "IntExpr:4", lambda _, x: abs(x)
     )
-    mtb_s_vref_pu.add_pf_sub_t(
+    mtb_s_vref_pu.add_pf_sub_mode(
         "initializer_qdsl.ElmQdsl", "initVals:4", lambda _, x: abs(x)
     )
 
-    mtb_s_dvref_pu = signal("mtb_s_dvref_pu")
-    mtb_s_phref_deg = signal("mtb_s_phref_deg", measFile=True)
-    mtb_s_phref_deg.add_pf_sub_s0("vac.ElmVac", "phisetp")
-    mtb_s_fref_hz = signal("mtb_s_fref_hz", measFile=True)
+    mtb_s_dvref_pu = add_signal_to_channels("mtb_s_dvref_pu")
+    mtb_s_phref_deg = add_signal_to_channels("mtb_s_phref_deg", measFile=True)
+    mtb_s_phref_deg.add_pf_sub_value0("vac.ElmVac", "phisetp")
+    mtb_s_fref_hz = add_signal_to_channels("mtb_s_fref_hz", measFile=True)
 
-    mtb_s_varef_pu = signal("mtb_s_varef_pu", defaultConnection=False)
-    mtb_s_vbref_pu = signal("mtb_s_vbref_pu", defaultConnection=False)
-    mtb_s_vcref_pu = signal("mtb_s_vcref_pu", defaultConnection=False)
+    mtb_s_varef_pu = add_signal_to_channels("mtb_s_varef_pu", defaultConnection=False)
+    mtb_s_vbref_pu = add_signal_to_channels("mtb_s_vbref_pu", defaultConnection=False)
+    mtb_s_vcref_pu = add_signal_to_channels("mtb_s_vcref_pu", defaultConnection=False)
 
     # Grid impedance
-    mtb_s_scr = signal("mtb_s_scr")
-    mtb_s_scr.add_pf_sub_s0("initializer_script.ComDpl", "IntExpr:11")
-    mtb_s_scr.add_pf_sub_s0("initializer_qdsl.ElmQdsl", "initVals:11")
+    mtb_s_scr = add_signal_to_channels("mtb_s_scr")
+    mtb_s_scr.add_pf_sub_value0("initializer_script.ComDpl", "IntExpr:11")
+    mtb_s_scr.add_pf_sub_value0("initializer_qdsl.ElmQdsl", "initVals:11")
 
-    mtb_s_xr = signal("mtb_s_xr")
-    mtb_s_xr.add_pf_sub_s0("initializer_script.ComDpl", "IntExpr:12")
-    mtb_s_xr.add_pf_sub_s0("initializer_qdsl.ElmQdsl", "initVals:12")
+    mtb_s_xr = add_signal_to_channels("mtb_s_xr")
+    mtb_s_xr.add_pf_sub_value0("initializer_script.ComDpl", "IntExpr:12")
+    mtb_s_xr.add_pf_sub_value0("initializer_qdsl.ElmQdsl", "initVals:12")
 
-    ldf_t_uk = signal("ldf_t_uk", defaultConnection=False)
-    ldf_t_uk.add_pf_sub_s0("z.ElmSind", "uk")
-    ldf_t_pcu_kw = signal("ldf_t_pcu_kw", defaultConnection=False)
-    ldf_t_pcu_kw.add_pf_sub_s0("z.ElmSind", "Pcu")
+    ldf_t_uk = add_signal_to_channels("ldf_t_uk", defaultConnection=False)
+    ldf_t_uk.add_pf_sub_value0("z.ElmSind", "uk")
+    ldf_t_pcu_kw = add_signal_to_channels("ldf_t_pcu_kw", defaultConnection=False)
+    ldf_t_pcu_kw.add_pf_sub_value0("z.ElmSind", "Pcu")
 
     # Zero sequence impedance
-    mtb_t_r0_ohm = signal("mtb_t_r0_ohm", defaultConnection=False)
-    mtb_t_r0_ohm.add_pf_sub_s0("vac.ElmVac", "R0")
-    mtb_t_r0_ohm.add_pf_sub_s0("fault_ctrl.ElmDsl", "r0")
+    mtb_t_r0_ohm = add_signal_to_channels("mtb_t_r0_ohm", defaultConnection=False)
+    mtb_t_r0_ohm.add_pf_sub_value0("vac.ElmVac", "R0")
+    mtb_t_r0_ohm.add_pf_sub_value0("fault_ctrl.ElmDsl", "r0")
 
-    mtb_t_x0_ohm = signal("mtb_t_x0_ohm", defaultConnection=False)
-    mtb_t_x0_ohm.add_pf_sub_s0("vac.ElmVac", "X0")
-    mtb_t_x0_ohm.add_pf_sub_s0("fault_ctrl.ElmDsl", "x0")
+    mtb_t_x0_ohm = add_signal_to_channels("mtb_t_x0_ohm", defaultConnection=False)
+    mtb_t_x0_ohm.add_pf_sub_value0("vac.ElmVac", "X0")
+    mtb_t_x0_ohm.add_pf_sub_value0("fault_ctrl.ElmDsl", "x0")
 
     # Standard plant references and outputs
-    mtb_s_pref_pu = signal("mtb_s_pref_pu", measFile=True)
-    mtb_s_pref_pu.add_pf_sub_s0("initializer_script.ComDpl", "IntExpr:6")
-    mtb_s_pref_pu.add_pf_sub_s0("initializer_qdsl.ElmQdsl", "initVals:6")
-    mtb_s_pref_pu.add_pf_sub_s0(
+    mtb_s_pref_pu = add_signal_to_channels("mtb_s_pref_pu", measFile=True)
+    mtb_s_pref_pu.add_pf_sub_value0("initializer_script.ComDpl", "IntExpr:6")
+    mtb_s_pref_pu.add_pf_sub_value0("initializer_qdsl.ElmQdsl", "initVals:6")
+    mtb_s_pref_pu.add_pf_sub_value0(
         "powerf_ctrl.ElmSecctrl", "psetp", lambda _, x: x * plantSettings.Pn
     )
 
-    mtb_s_qref = signal("mtb_s_qref", measFile=True)
-    mtb_s_qref.add_pf_sub_s0("initializer_script.ComDpl", "IntExpr:9")
-    mtb_s_qref.add_pf_sub_s0("initializer_qdsl.ElmQdsl", "initVals:9")
-    mtb_s_qref.add_pf_sub_s0(
+    mtb_s_qref = add_signal_to_channels("mtb_s_qref", measFile=True)
+    mtb_s_qref.add_pf_sub_value0("initializer_script.ComDpl", "IntExpr:9")
+    mtb_s_qref.add_pf_sub_value0("initializer_qdsl.ElmQdsl", "initVals:9")
+    mtb_s_qref.add_pf_sub_value0(
         "station_ctrl.ElmStactrl", "usetp", lambda _, x: 1.0 if x <= 0.0 else x
     )
-    mtb_s_qref.add_pf_sub_s0(
+    mtb_s_qref.add_pf_sub_value0(
         "station_ctrl.ElmStactrl", "qsetp", lambda _, x: -x * plantSettings.Pn
     )
-    mtb_s_qref.add_pf_sub_s0(
+    mtb_s_qref.add_pf_sub_value0(
         "station_ctrl.ElmStactrl", "pfsetp", lambda _, x: min(abs(x), 1.0)
     )
-    mtb_s_qref.add_pf_sub_s0(
+    mtb_s_qref.add_pf_sub_value0(
         "station_ctrl.ElmStactrl", "pf_recap", lambda _, x: 0 if x > 0 else 1
     )
 
-    mtb_s_qref_q_pu = signal("mtb_s_qref_q_pu", measFile=True)
-    mtb_s_qref_qu_pu = signal("mtb_s_qref_qu_pu", measFile=True)
-    mtb_s_qref_pf = signal("mtb_s_qref_pf", measFile=True)
-    mtb_s_qref_3 = signal("mtb_s_qref_3", measFile=True)
-    mtb_s_qref_4 = signal("mtb_s_qref_4", measFile=True)
-    mtb_s_qref_5 = signal("mtb_s_qref_5", measFile=True)
-    mtb_s_qref_6 = signal("mtb_s_qref_6", measFile=True)
+    mtb_s_qref_q_pu = add_signal_to_channels("mtb_s_qref_q_pu", measFile=True)
+    mtb_s_qref_qu_pu = add_signal_to_channels("mtb_s_qref_qu_pu", measFile=True)
+    mtb_s_qref_pf = add_signal_to_channels("mtb_s_qref_pf", measFile=True)
+    mtb_s_qref_3 = add_signal_to_channels("mtb_s_qref_3", measFile=True)
+    mtb_s_qref_4 = add_signal_to_channels("mtb_s_qref_4", measFile=True)
+    mtb_s_qref_5 = add_signal_to_channels("mtb_s_qref_5", measFile=True)
+    mtb_s_qref_6 = add_signal_to_channels("mtb_s_qref_6", measFile=True)
 
-    mtb_t_qmode = signal("mtb_t_qmode")
-    mtb_t_qmode.add_pf_sub_s0("initializer_script.ComDpl", "IntExpr:8")
-    mtb_t_qmode.add_pf_sub_s0("initializer_qdsl.ElmQdsl", "initVals:8")
+    mtb_t_qmode = add_signal_to_channels("mtb_t_qmode")
+    mtb_t_qmode.add_pf_sub_value0("initializer_script.ComDpl", "IntExpr:8")
+    mtb_t_qmode.add_pf_sub_value0("initializer_qdsl.ElmQdsl", "initVals:8")
 
     def stactrl_mode_switch(self: si.Signal, qmode: float):
         if qmode == 1:
@@ -275,24 +275,24 @@ def setup(
         else:
             return 1
 
-    mtb_t_qmode.add_pf_sub_s0("station_ctrl.ElmStactrl", "i_ctrl", stactrl_mode_switch)
+    mtb_t_qmode.add_pf_sub_value0("station_ctrl.ElmStactrl", "i_ctrl", stactrl_mode_switch)
 
-    mtb_t_pmode = signal("mtb_t_pmode")
-    mtb_t_pmode.add_pf_sub_s0("initializer_script.ComDpl", "IntExpr:7")
-    mtb_t_pmode.add_pf_sub_s0("initializer_qdsl.ElmQdsl", "initVals:7")
+    mtb_t_pmode = add_signal_to_channels("mtb_t_pmode")
+    mtb_t_pmode.add_pf_sub_value0("initializer_script.ComDpl", "IntExpr:7")
+    mtb_t_pmode.add_pf_sub_value0("initializer_qdsl.ElmQdsl", "initVals:7")
 
     # Constants
-    mtb_c_pn = constant("mtb_c_pn", plantSettings.Pn)
+    mtb_c_pn = add_constant_to_channels("mtb_c_pn", plantSettings.Pn)
     mtb_c_pn.add_pf_sub("initializer_script.ComDpl", "IntExpr:0")
     mtb_c_pn.add_pf_sub("initializer_qdsl.ElmQdsl", "initVals:0")
     mtb_c_pn.add_pf_sub("measurements.ElmDsl", "pn")
     mtb_c_pn.add_pf_sub("rx_calc.ElmDsl", "pn")
     mtb_c_pn.add_pf_sub("z.ElmSind", "Sn")
 
-    mtb_c_qn = constant("mtb_c_qn", 0.33 * plantSettings.Pn)
+    mtb_c_qn = add_constant_to_channels("mtb_c_qn", 0.33 * plantSettings.Pn)
     mtb_c_qn.add_pf_sub("station_ctrl.ElmStactrl", "Srated")
 
-    mtb_c_vbase = constant("mtb_c_vbase", plantSettings.Un)
+    mtb_c_vbase = add_constant_to_channels("mtb_c_vbase", plantSettings.Un)
     mtb_c_vbase.add_pf_sub("initializer_script.ComDpl", "IntExpr:1")
     mtb_c_vbase.add_pf_sub("initializer_qdsl.ElmQdsl", "initVals:1")
     mtb_c_vbase.add_pf_sub("measurements.ElmDsl", "vbase")
@@ -304,155 +304,155 @@ def setup(
     mtb_c_vbase.add_pf_sub("connector.ElmSind", "ucn")
     mtb_c_vbase.add_pf_sub("vac.ElmVac", "Unom")
 
-    mtb_c_vc = constant("mtb_c_vc", plantSettings.Uc)
+    mtb_c_vc = add_constant_to_channels("mtb_c_vc", plantSettings.Uc)
     mtb_c_vc.add_pf_sub("initializer_script.ComDpl", "IntExpr:2")
     mtb_c_vc.add_pf_sub("initializer_qdsl.ElmQdsl", "initVals:2")
     mtb_c_vc.add_pf_sub("rx_calc.ElmDsl", "vc")
 
-    mtb_c_flattime_s = constant("mtb_c_flattime_s", plantSettings.PF_flat_time)
+    mtb_c_flattime_s = add_constant_to_channels("mtb_c_flattime_s", plantSettings.PF_flat_time)
     mtb_c_flattime_s.add_pf_sub("initializer_script.ComDpl", "IntExpr:3")
     mtb_c_flattime_s.add_pf_sub("initializer_qdsl.ElmQdsl", "initVals:3")
 
-    mtb_c_vdroop = constant("mtb_c_vdroop", plantSettings.V_droop)
+    mtb_c_vdroop = add_constant_to_channels("mtb_c_vdroop", plantSettings.V_droop)
     mtb_c_vdroop.add_pf_sub("initializer_script.ComDpl", "IntExpr:10")
     mtb_c_vdroop.add_pf_sub("initializer_qdsl.ElmQdsl", "initVals:10")
     mtb_c_vdroop.add_pf_sub("station_ctrl.ElmStactrl", "ddroop")
 
     # Time and rank control
-    mtb_t_simtimePf_s = signal("mtb_t_simtimePf_s", defaultConnection=False)
-    mtb_t_simtimePf_s.add_pf_sub_s0("$studycase$\\ComSim", "tstop")
+    mtb_t_simtimePf_s = add_signal_to_channels("mtb_t_simtimePf_s", defaultConnection=False)
+    mtb_t_simtimePf_s.add_pf_sub_value0("$studycase$\\ComSim", "tstop")
 
     # Fault
-    flt_s_type = signal("flt_s_type")
-    flt_s_rf_ohm = signal("flt_s_rf_ohm")
-    flt_s_resxf = signal("flt_s_resxf")
+    flt_s_type = add_signal_to_channels("flt_s_type")
+    flt_s_rf_ohm = add_signal_to_channels("flt_s_rf_ohm")
+    flt_s_resxf = add_signal_to_channels("flt_s_resxf")
 
     mtb_s: List[si.Signal] = []
     # Custom signals
-    mtb_s.append(signal("mtb_s_1", measFile=True))
-    mtb_s[-1].add_pf_sub_s0("initializer_script.ComDpl", "IntExpr:13")
-    mtb_s[-1].add_pf_sub_s0("initializer_qdsl.ElmQdsl", "initVals:13")
-    mtb_s.append(signal("mtb_s_2", measFile=True))
-    mtb_s[-1].add_pf_sub_s0("initializer_script.ComDpl", "IntExpr:14")
-    mtb_s[-1].add_pf_sub_s0("initializer_qdsl.ElmQdsl", "initVals:14")
-    mtb_s.append(signal("mtb_s_3", measFile=True))
-    mtb_s[-1].add_pf_sub_s0("initializer_script.ComDpl", "IntExpr:15")
-    mtb_s[-1].add_pf_sub_s0("initializer_qdsl.ElmQdsl", "initVals:15")
-    mtb_s.append(signal("mtb_s_4", measFile=True))
-    mtb_s[-1].add_pf_sub_s0("initializer_script.ComDpl", "IntExpr:16")
-    mtb_s[-1].add_pf_sub_s0("initializer_qdsl.ElmQdsl", "initVals:16")
-    mtb_s.append(signal("mtb_s_5", measFile=True))
-    mtb_s[-1].add_pf_sub_s0("initializer_script.ComDpl", "IntExpr:17")
-    mtb_s[-1].add_pf_sub_s0("initializer_qdsl.ElmQdsl", "initVals:17")
-    mtb_s.append(signal("mtb_s_6", measFile=True))
-    mtb_s[-1].add_pf_sub_s0("initializer_script.ComDpl", "IntExpr:18")
-    mtb_s[-1].add_pf_sub_s0("initializer_qdsl.ElmQdsl", "initVals:18")
-    mtb_s.append(signal("mtb_s_7", measFile=True))
-    mtb_s[-1].add_pf_sub_s0("initializer_script.ComDpl", "IntExpr:19")
-    mtb_s[-1].add_pf_sub_s0("initializer_qdsl.ElmQdsl", "initVals:19")
-    mtb_s.append(signal("mtb_s_8", measFile=True))
-    mtb_s[-1].add_pf_sub_s0("initializer_script.ComDpl", "IntExpr:20")
-    mtb_s[-1].add_pf_sub_s0("initializer_qdsl.ElmQdsl", "initVals:20")
-    mtb_s.append(signal("mtb_s_9", measFile=True))
-    mtb_s[-1].add_pf_sub_s0("initializer_script.ComDpl", "IntExpr:21")
-    mtb_s[-1].add_pf_sub_s0("initializer_qdsl.ElmQdsl", "initVals:21")
-    mtb_s.append(signal("mtb_s_10", measFile=True))
-    mtb_s[-1].add_pf_sub_s0("initializer_script.ComDpl", "IntExpr:22")
-    mtb_s[-1].add_pf_sub_s0("initializer_qdsl.ElmQdsl", "initVals:22")
+    mtb_s.append(add_signal_to_channels("mtb_s_1", measFile=True))
+    mtb_s[-1].add_pf_sub_value0("initializer_script.ComDpl", "IntExpr:13")
+    mtb_s[-1].add_pf_sub_value0("initializer_qdsl.ElmQdsl", "initVals:13")
+    mtb_s.append(add_signal_to_channels("mtb_s_2", measFile=True))
+    mtb_s[-1].add_pf_sub_value0("initializer_script.ComDpl", "IntExpr:14")
+    mtb_s[-1].add_pf_sub_value0("initializer_qdsl.ElmQdsl", "initVals:14")
+    mtb_s.append(add_signal_to_channels("mtb_s_3", measFile=True))
+    mtb_s[-1].add_pf_sub_value0("initializer_script.ComDpl", "IntExpr:15")
+    mtb_s[-1].add_pf_sub_value0("initializer_qdsl.ElmQdsl", "initVals:15")
+    mtb_s.append(add_signal_to_channels("mtb_s_4", measFile=True))
+    mtb_s[-1].add_pf_sub_value0("initializer_script.ComDpl", "IntExpr:16")
+    mtb_s[-1].add_pf_sub_value0("initializer_qdsl.ElmQdsl", "initVals:16")
+    mtb_s.append(add_signal_to_channels("mtb_s_5", measFile=True))
+    mtb_s[-1].add_pf_sub_value0("initializer_script.ComDpl", "IntExpr:17")
+    mtb_s[-1].add_pf_sub_value0("initializer_qdsl.ElmQdsl", "initVals:17")
+    mtb_s.append(add_signal_to_channels("mtb_s_6", measFile=True))
+    mtb_s[-1].add_pf_sub_value0("initializer_script.ComDpl", "IntExpr:18")
+    mtb_s[-1].add_pf_sub_value0("initializer_qdsl.ElmQdsl", "initVals:18")
+    mtb_s.append(add_signal_to_channels("mtb_s_7", measFile=True))
+    mtb_s[-1].add_pf_sub_value0("initializer_script.ComDpl", "IntExpr:19")
+    mtb_s[-1].add_pf_sub_value0("initializer_qdsl.ElmQdsl", "initVals:19")
+    mtb_s.append(add_signal_to_channels("mtb_s_8", measFile=True))
+    mtb_s[-1].add_pf_sub_value0("initializer_script.ComDpl", "IntExpr:20")
+    mtb_s[-1].add_pf_sub_value0("initializer_qdsl.ElmQdsl", "initVals:20")
+    mtb_s.append(add_signal_to_channels("mtb_s_9", measFile=True))
+    mtb_s[-1].add_pf_sub_value0("initializer_script.ComDpl", "IntExpr:21")
+    mtb_s[-1].add_pf_sub_value0("initializer_qdsl.ElmQdsl", "initVals:21")
+    mtb_s.append(add_signal_to_channels("mtb_s_10", measFile=True))
+    mtb_s[-1].add_pf_sub_value0("initializer_script.ComDpl", "IntExpr:22")
+    mtb_s[-1].add_pf_sub_value0("initializer_qdsl.ElmQdsl", "initVals:22")
 
     # Powerfactory references
-    ldf_r_vcNode = pfObjRefer("mtb_r_vcNode")
+    ldf_r_vcNode = add_pf_obj_refer_to_channels("mtb_r_vcNode")
     ldf_r_vcNode.add_pf_sub("vac.ElmVac", "contbar")
 
     # Refences outserv time invariants
-    ldf_t_refOOS = signal("ldf_t_refOOS", defaultConnection=False)
-    ldf_t_refOOS.add_pf_sub_s0("mtb_s_pref_pu.ElmDsl", "outserv")
-    ldf_t_refOOS.add_pf_sub_s0("mtb_s_qref_q_pu.ElmDsl", "outserv")
-    ldf_t_refOOS.add_pf_sub_s0("mtb_s_qref_qu_pu.ElmDsl", "outserv")
-    ldf_t_refOOS.add_pf_sub_s0("mtb_s_qref_pf.ElmDsl", "outserv")
-    ldf_t_refOOS.add_pf_sub_s0("mtb_t_qmode.ElmDsl", "outserv")
-    ldf_t_refOOS.add_pf_sub_s0("mtb_t_pmode.ElmDsl", "outserv")
-    ldf_t_refOOS.add_pf_sub_s0("mtb_s_1.ElmDsl", "outserv")
-    ldf_t_refOOS.add_pf_sub_s0("mtb_s_2.ElmDsl", "outserv")
-    ldf_t_refOOS.add_pf_sub_s0("mtb_s_3.ElmDsl", "outserv")
-    ldf_t_refOOS.add_pf_sub_s0("mtb_s_4.ElmDsl", "outserv")
-    ldf_t_refOOS.add_pf_sub_s0("mtb_s_5.ElmDsl", "outserv")
-    ldf_t_refOOS.add_pf_sub_s0("mtb_s_6.ElmDsl", "outserv")
-    ldf_t_refOOS.add_pf_sub_s0("mtb_s_7.ElmDsl", "outserv")
-    ldf_t_refOOS.add_pf_sub_s0("mtb_s_8.ElmDsl", "outserv")
-    ldf_t_refOOS.add_pf_sub_s0("mtb_s_9.ElmDsl", "outserv")
-    ldf_t_refOOS.add_pf_sub_s0("mtb_s_10.ElmDsl", "outserv")
+    ldf_t_refOOS = add_signal_to_channels("ldf_t_refOOS", defaultConnection=False)
+    ldf_t_refOOS.add_pf_sub_value0("mtb_s_pref_pu.ElmDsl", "outserv")
+    ldf_t_refOOS.add_pf_sub_value0("mtb_s_qref_q_pu.ElmDsl", "outserv")
+    ldf_t_refOOS.add_pf_sub_value0("mtb_s_qref_qu_pu.ElmDsl", "outserv")
+    ldf_t_refOOS.add_pf_sub_value0("mtb_s_qref_pf.ElmDsl", "outserv")
+    ldf_t_refOOS.add_pf_sub_value0("mtb_t_qmode.ElmDsl", "outserv")
+    ldf_t_refOOS.add_pf_sub_value0("mtb_t_pmode.ElmDsl", "outserv")
+    ldf_t_refOOS.add_pf_sub_value0("mtb_s_1.ElmDsl", "outserv")
+    ldf_t_refOOS.add_pf_sub_value0("mtb_s_2.ElmDsl", "outserv")
+    ldf_t_refOOS.add_pf_sub_value0("mtb_s_3.ElmDsl", "outserv")
+    ldf_t_refOOS.add_pf_sub_value0("mtb_s_4.ElmDsl", "outserv")
+    ldf_t_refOOS.add_pf_sub_value0("mtb_s_5.ElmDsl", "outserv")
+    ldf_t_refOOS.add_pf_sub_value0("mtb_s_6.ElmDsl", "outserv")
+    ldf_t_refOOS.add_pf_sub_value0("mtb_s_7.ElmDsl", "outserv")
+    ldf_t_refOOS.add_pf_sub_value0("mtb_s_8.ElmDsl", "outserv")
+    ldf_t_refOOS.add_pf_sub_value0("mtb_s_9.ElmDsl", "outserv")
+    ldf_t_refOOS.add_pf_sub_value0("mtb_s_10.ElmDsl", "outserv")
 
     # Calculation settings constants and timeVariants
-    ldf_c_iopt_lim = constant(
+    ldf_c_iopt_lim = add_constant_to_channels(
         "ldf_c_iopt_lim", int(plantSettings.PF_enforce_Q_limits_in_LDF)
     )
     ldf_c_iopt_lim.add_pf_sub("$studycase$\\ComLdf", "iopt_lim")
 
-    ldf_c_iopt_apdist = constant("ldf_c_iopt_apdist", 1)
+    ldf_c_iopt_apdist = add_constant_to_channels("ldf_c_iopt_apdist", 1)
     ldf_c_iopt_apdist.add_pf_sub("$studycase$\\ComLdf", "iopt_apdist")
 
-    ldf_c_iPST_at = constant("ldf_c_iPST_at", 1)
+    ldf_c_iPST_at = add_constant_to_channels("ldf_c_iPST_at", 1)
     ldf_c_iPST_at.add_pf_sub("$studycase$\\ComLdf", "iPST_at")
 
-    ldf_c_iopt_at = constant("ldf_c_iopt_at", 1)
+    ldf_c_iopt_at = add_constant_to_channels("ldf_c_iopt_at", 1)
     ldf_c_iopt_at.add_pf_sub("$studycase$\\ComLdf", "iopt_at")
 
-    ldf_c_iopt_asht = constant("ldf_c_iopt_asht", 1)
+    ldf_c_iopt_asht = add_constant_to_channels("ldf_c_iopt_asht", 1)
     ldf_c_iopt_asht.add_pf_sub("$studycase$\\ComLdf", "iopt_asht")
 
-    ldf_c_iopt_plim = constant(
+    ldf_c_iopt_plim = add_constant_to_channels(
         "ldf_c_iopt_plim", int(plantSettings.PF_enforce_P_limits_in_LDF)
     )
     ldf_c_iopt_plim.add_pf_sub("$studycase$\\ComLdf", "iopt_plim")
 
-    ldf_c_iopt_net = signal(
+    ldf_c_iopt_net = add_signal_to_channels(
         "ldf_c_iopt_net", defaultConnection=False
     )  # ldf asymmetrical option boolean
-    ldf_c_iopt_net.add_pf_sub_s0("$studycase$\\ComLdf", "iopt_net")
+    ldf_c_iopt_net.add_pf_sub_value0("$studycase$\\ComLdf", "iopt_net")
 
-    inc_c_iopt_net = string("inc_c_iopt_net")  # inc asymmetrical option
+    inc_c_iopt_net = add_string_to_channels("inc_c_iopt_net")  # inc asymmetrical option
     inc_c_iopt_net.add_pf_sub("$studycase$\\ComInc", "iopt_net")
 
-    inc_c_iopt_show = constant("inc_c_iopt_show", 1)
+    inc_c_iopt_show = add_constant_to_channels("inc_c_iopt_show", 1)
     inc_c_iopt_show.add_pf_sub("$studycase$\\ComInc", "iopt_show")
 
-    inc_c_dtgrd = constant("inc_c_dtgrd", 0.001)
+    inc_c_dtgrd = add_constant_to_channels("inc_c_dtgrd", 0.001)
     inc_c_dtgrd.add_pf_sub("$studycase$\\ComInc", "dtgrd")
 
-    inc_c_dtgrd_max = constant("inc_c_dtgrd_max", 0.01)
+    inc_c_dtgrd_max = add_constant_to_channels("inc_c_dtgrd_max", 0.01)
     inc_c_dtgrd_max.add_pf_sub("$studycase$\\ComInc", "dtgrd_max")
 
-    inc_c_tstart = constant("inc_c_tstart", 0)
+    inc_c_tstart = add_constant_to_channels("inc_c_tstart", 0)
     inc_c_tstart.add_pf_sub("$studycase$\\ComInc", "tstart")
 
-    inc_c_iopt_sync = constant(
+    inc_c_iopt_sync = add_constant_to_channels(
         "inc_c_iopt_sync", plantSettings.PF_enforced_sync
     )  # enforced sync. option
     inc_c_iopt_sync.add_pf_sub("$studycase$\\ComInc", "iopt_sync")
 
-    inc_c_syncperiod = constant("inc_c_syncperiod", 0.001)
+    inc_c_syncperiod = add_constant_to_channels("inc_c_syncperiod", 0.001)
     inc_c_syncperiod.add_pf_sub("$studycase$\\ComInc", "syncperiod")
 
-    inc_c_iopt_adapt = constant(
+    inc_c_iopt_adapt = add_constant_to_channels(
         "inc_c_iopt_adapt", plantSettings.PF_variable_step
     )  # variable step option
     inc_c_iopt_adapt.add_pf_sub("$studycase$\\ComInc", "iopt_adapt")
 
-    inc_c_iopt_lt = constant("inc_c_iopt_lt", 0)
+    # inc_c_iopt_lt = add_constant_to_channels("inc_c_iopt_lt", 0)
+    inc_c_iopt_lt = add_constant_to_channels("inc_c_iopt_lt", 2)
     inc_c_iopt_lt.add_pf_sub("$studycase$\\ComInc", "iopt_lt")
 
-    inc_c_errseq = constant("inc_c_errseq", 0.01)
+    inc_c_errseq = add_constant_to_channels("inc_c_errseq", 0.01)
     inc_c_errseq.add_pf_sub("$studycase$\\ComInc", "errseq")
 
-    inc_c_autocomp = constant("inc_c_autocomp", 0)
+    inc_c_autocomp = add_constant_to_channels("inc_c_autocomp", 0)
     inc_c_autocomp.add_pf_sub("$studycase$\\ComInc", "automaticCompilation")
 
     df = pd.read_excel(casesheetPath, sheet_name=f"{plantSettings.Casegroup} cases", header=1)  # type: ignore
 
     maxRank = 0
     cases: List[Case] = []
-    emtCases: List[Case] = []
 
     for _, case_ in df.iterrows():  # type: ignore
         cases.append(Case(case_))  # type: ignore

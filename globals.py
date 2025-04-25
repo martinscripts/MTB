@@ -1,10 +1,12 @@
 pfp = None
 pfdyn = None
+pfplot = None
 mtb = None
 
 from powfacpy.base.active_project import ActiveProject
 from powfacpy.applications.dynamic_simulation import DynamicSimulation
 from powfacpy.pf_class_protocols import PFApp
+from powfacpy.applications.plots import Plots
 from typing import Optional, Tuple
 import sys
 if getattr(sys, "gettrace", None) is not None:
@@ -17,6 +19,7 @@ def connectPF(project_name) -> Tuple[PFApp, int]:
     """
     global pfp
     global pfdyn
+    global pfplot
     global mtb
     app: Optional[pf.Application] = pf.GetApplicationExt()
     if not app:
@@ -35,6 +38,7 @@ def connectPF(project_name) -> Tuple[PFApp, int]:
 
     pfp = ActiveProject(app)
     pfdyn = DynamicSimulation(app)
+    pfplot = Plots(app)
     mtb = pfp.get_unique_obj("MTB.ElmNet", include_subfolders=True)
 
     return app, pfVersion

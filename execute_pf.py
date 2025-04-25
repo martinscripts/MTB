@@ -44,6 +44,8 @@ class PowerfactorySettings:
         self.post_run_backup = bool(self.parsedPfSettings["Post_run_backup"])
         self.sub_conf_str = str(self.parsedPfSettings["sub_conf_str"])
 
+        self.generator = str(self.parsedPfSettings["Generator"])
+
         self.pref_sub_attrib = str(self.parsedPfSettings["Pref_sub_attrib"])
         self.pref_sub_scale = float(self.parsedPfSettings["Pref_sub_scale"])
         self.qref_q_sub_attrib = str(self.parsedPfSettings["Qref_q_sub_attrib"])
@@ -249,65 +251,35 @@ def setupExport(app: pf.Application, filename: str):
     comRes.SetAttribute("f_name", csvFileName)
 
 
-def setupPlots(app: pf.Application, root: pf.DataObject):
+def setupPlots():
     """
     Setup the plots for the studycase.
     """
-    globals.pfp.app.Show()
-    measurementBlock = root.SearchObject("measurements.ElmDsl")
+    pfp, pfplot, mtb = globals.pfp, globals.pfplot, globals.mtb
+    pfp.app.Show()
+    measurementBlock = pfp.get_unique_obj(
+        "measurements.ElmDsl", include_subfolders=True, parent_folder=mtb
+    )
     assert measurementBlock is not None
 
-    board: pf.SetDesktop = globals.pfp.app.GetFromStudyCase("SetDesktop")  # type: ignore
-    assert board is not None
+    pfplot.clear_plot_pages()
 
-    plots: List[pf.GrpPage] = board.GetContents("*.GrpPage", 1)  # type: ignore
+    pfplot.set_active_plot("PQ", "Plot")
+    pfplot.plot(measurementBlock, ["s:ppoc_pu", "s:qpoc_pu"])
 
-    for p in plots:
-        p.RemovePage()
+    pfplot.set_active_plot("U", "Plot")
+    pfplot.plot(measurementBlock, ["s:pos_Vmag_pu", "s:net_Vmag_pu"])
 
-    # Create pages
-    plotPage: pf.GrpPage = board.GetPage("Plot", 1, "GrpPage")  # type: ignore
-    assert plotPage is not None
+    pfplot.set_active_plot("I", "Plot")
+    pfplot.plot(
+        measurementBlock, ["s:pos_Id_pu", "s:pos_Iq_pu", "s:neg_Id_pu", "s:neg_Iq_pu"]
+    )
 
-    # PQ plot
-    pqPlot: pf.PltLinebarplot = plotPage.GetOrInsertPlot("PQ", 1)  # type: ignore
-    assert pqPlot is not None
-    pqPlotDS: pf.PltDataseries = pqPlot.GetDataSeries()  # type: ignore
-    assert pqPlotDS is not None
-    pqPlotDS.AddCurve(measurementBlock, "s:ppoc_pu")
-    pqPlotDS.AddCurve(measurementBlock, "s:qpoc_pu")
-    pqPlot.DoAutoScale()
+    pfplot.set_active_plot("F", "Plot")
+    pfplot.plot(measurementBlock, ["s:f_hz"])
 
-    # U plot
-    uPlot: pf.PltLinebarplot = plotPage.GetOrInsertPlot("U", 1)  # type: ignore
-    assert uPlot is not None
-    uPlotDS: pf.PltDataseries = uPlot.GetDataSeries()  # type: ignore
-    assert uPlotDS is not None
-    uPlotDS.AddCurve(measurementBlock, "s:pos_Vmag_pu")
-    uPlotDS.AddCurve(measurementBlock, "s:neg_Vmag_pu")
-    uPlot.DoAutoScale()
-
-    # I plot
-    iPlot: pf.PltLinebarplot = plotPage.GetOrInsertPlot("I", 1)  # type: ignore
-    assert iPlot is not None
-    iPlotDS: pf.PltDataseries = iPlot.GetDataSeries()  # type: ignore
-    assert iPlotDS is not None
-    iPlotDS.AddCurve(measurementBlock, "s:pos_Id_pu")
-    iPlotDS.AddCurve(measurementBlock, "s:pos_Iq_pu")
-    iPlotDS.AddCurve(measurementBlock, "s:neg_Id_pu")
-    iPlotDS.AddCurve(measurementBlock, "s:neg_Iq_pu")
-    iPlot.DoAutoScale()
-
-    # F plot
-    fPlot: pf.PltLinebarplot = plotPage.GetOrInsertPlot("F", 1)  # type: ignore
-    assert fPlot is not None
-    fPlotDS: pf.PltDataseries = fPlot.GetDataSeries()  # type: ignore
-    assert fPlotDS is not None
-    fPlotDS.AddCurve(measurementBlock, "s:f_hz")
-    fPlot.DoAutoScale()
-
-    globals.pfp.app.WriteChangesToDb()
-    globals.pfp.app.Hide()
+    pfp.app.WriteChangesToDb()
+    pfp.app.Hide()
 
 
 def addCustomSubscribers(pfSettings, channels: List[si.Channel]) -> None:
@@ -332,6 +304,7 @@ def addCustomSubscribers(pfSettings, channels: List[si.Channel]) -> None:
         sub_obj = globals.pfp.get_unique_obj(
             obj_name,
             include_subfolders=True,
+            parent_folder=globals.pfp.network_data_folder,
         )
         sub_attrib = getattr(pfSettings, f"{param}_sub_attrib")
         assert isinstance(sub_attrib, str)
@@ -376,15 +349,15 @@ def addCustomSubscribers(pfSettings, channels: List[si.Channel]) -> None:
             chnl = get_channel_by_name(sub)
             if isinstance(chnl, si.Signal):
                 if typ.lower() == "s" or typ.lower() == "c":
-                    chnl.add_pf_sub_s(obj, attrib, lambda _, x, l=lamb: eval(l))
+                    chnl.add_pf_sub_value(obj, attrib, lambda _, x, l=lamb: eval(l))
                 elif typ.lower() == "s0":
-                    chnl.add_pf_sub_s0(
+                    chnl.add_pf_sub_value0(
                         obj, attrib, lambda _, x, l=lamb: eval(l)
                     )  # Not exactly safe
                 elif typ.lower() == "r":
-                    chnl.add_pf_sub_r(obj, attrib, lambda _, x, l=lamb: eval(l))
+                    chnl.add_pf_sub_ramp(obj, attrib, lambda _, x, l=lamb: eval(l))
                 elif typ.lower() == "t":
-                    chnl.add_pf_sub_t(obj, attrib, lambda _, x, l=lamb: eval(l))
+                    chnl.add_pf_sub_mode(obj, attrib, lambda _, x, l=lamb: eval(l))
             elif (
                 isinstance(chnl, si.Constant)
                 or isinstance(chnl, si.PfObjRefer)
@@ -393,9 +366,22 @@ def addCustomSubscribers(pfSettings, channels: List[si.Channel]) -> None:
                 chnl.add_pf_sub(obj, attrib)
 
 
+def add_generator_to_station_and_secondary_controllers(generator):
+    station_controller = globals.pfp.get_unique_obj(
+        "station_ctrl.ElmStactrl", include_subfolders=True, parent_folder=globals.mtb
+    )
+    secondary_controller = globals.pfp.get_unique_obj(
+        "powerf_ctrl.ElmSecctrl", include_subfolders=True, parent_folder=globals.mtb
+    )
+    station_controller.psym = [generator]
+    secondary_controller.psym = [generator]
+    return None
+
+
 def main():
     # Connect to Powerfactory
     app, pfVersion = globals.connectPF(config.project_name)
+    globals.pfp.rollback_project_to_previous_version("First")
 
     project = globals.pfp.get_active_project()
 
@@ -438,12 +424,20 @@ def main():
     if not os.path.exists(config.exportPath):
         os.makedirs(config.exportPath)
 
-    # Find initializer script object
-    initScript = globals.pfp.get_unique_obj(
-        "initializer_script.ComDpl",
-        include_subfolders=True,
-        parent_folder=globals.mtb,
+    add_generator_to_station_and_secondary_controllers(
+        generator=globals.pfp.get_unique_obj(
+            pfSettings.generator,
+            include_subfolders=True,
+            parent_folder=globals.pfp.network_data_folder,
+        )
     )
+
+    # # Find initializer script object # TODO delete?
+    # initScript = globals.pfp.get_unique_obj(
+    #     "initializer_script.ComDpl",
+    #     include_subfolders=True,
+    #     parent_folder=globals.mtb,
+    # )
 
     # List of created studycases for later activation
     studycases: List[pf.IntCase] = []
@@ -452,105 +446,96 @@ def main():
 
     # Filter cases if Only_setup > 0
     assert isinstance(pfSettings.only_setup, int)
-
     if pfSettings.only_setup > 0:
         cases = list(filter(lambda x: x.rank == pfSettings.only_setup, cases))
 
     globals.pfp.app.EchoOff()
-    for case in cases:
-        if case.RMS:
-            # Set-up studycase, variation and balance
-            caseName = f"{str(case.rank).zfill(len(str(maxRank)))}_{case.Name}".replace(
-                ".", ""
-            )
-            exportName = os.path.join(
-                os.path.abspath(config.exportPath),
-                f"{plantSettings.Projectname}_{case.rank}",
-            )
-            newStudycase = globals.pfp.create_in_folder(
-                f"{caseName}.IntCase", globals.pfp.study_cases_folder
-            )
-            assert newStudycase is not None
-            studycases.append(newStudycase)
-            newStudycase.Activate()
-            newStudycase.SetStudyTime(studyTime)
+    for case in [c for c in cases if c.RMS]:
+        # Set-up studycase, variation and balance
+        caseName = f"{str(case.rank).zfill(len(str(maxRank)))}_{case.Name}".replace(
+            ".", ""
+        )
+        exportName = os.path.join(
+            os.path.abspath(config.exportPath),
+            f"{plantSettings.Projectname}_{case.rank}",
+        )
+        newStudycase = globals.pfp.create_in_folder(
+            f"{caseName}.IntCase", globals.pfp.study_cases_folder
+        )
+        assert newStudycase is not None
+        studycases.append(newStudycase)
+        newStudycase.Activate()
+        newStudycase.SetStudyTime(studyTime)
 
-            # Activate the relevant networks
-            for g in activeGrids:
-                g.Activate()
+        # Activate the relevant networks
+        for g in activeGrids:
+            g.Activate()
 
-            newVar = globals.pfp.create_in_folder(
-                f"{caseName}.IntScheme", globals.pfp.variations_folder
-            )
-            assert newVar is not None
-            newStage = globals.pfp.create_in_folder(f"{caseName}.IntSstage", newVar)
-            assert newStage is not None
-            newStage.SetAttribute("e:tAcTime", studyTime)
-            newVar.Activate()
-            newStage.Activate()
+        newVar = globals.pfp.create_in_folder(
+            f"{caseName}.IntScheme", globals.pfp.variations_folder
+        )
+        assert newVar is not None
+        newStage = globals.pfp.create_in_folder(f"{caseName}.IntSstage", newVar)
+        assert newStage is not None
+        newStage.SetAttribute("e:tAcTime", studyTime)
+        newVar.Activate()
+        newStage.Activate()
 
-            si.apply_to_powerfactory(channels, case.rank)
+        si.apply_to_powerfactory(channels, case.rank)
 
-            initScript.Execute()
+        # initScript.Execute() # this script parses the Q control mode and for example FSM mode of the plantSettings to the P and Q controllers # TODO reimplement
 
-            ### WORKAROUND FOR QDSL FAILING WHEN IN MTB-GRID ###
-            # TODO: REMOVE WHEN FIXED
-            if config.QDSLcopyGrid != "":
-                qdslInitializer = globals.pfp.get_unique_obj(
-                    "initializer_qdsl.ElmQdsl",
-                    include_subfolders=True,
-                    parent_folder=globals.mtb,
-                )
-                for g in activeGrids:
-                    gridName = g.GetFullName()
-                    assert isinstance(gridName, str)
-                    if gridName.lower().endswith(
-                        f"{config.QDSLcopyGrid.lower()}.elmnet"
-                    ):
-                        g.AddCopy(qdslInitializer)  # type: ignore
+        # ### WORKAROUND FOR QDSL FAILING WHEN IN MTB-GRID ### # TODO delete?
+        # # TODO: REMOVE WHEN FIXED
+        # if config.QDSLcopyGrid != "":
+        #     qdslInitializer = globals.pfp.get_unique_obj(
+        #         "initializer_qdsl.ElmQdsl",
+        #         include_subfolders=True,
+        #         parent_folder=globals.mtb,
+        #     )
+        #     for g in activeGrids:
+        #         gridName = g.GetFullName()
+        #         assert isinstance(gridName, str)
+        #         if gridName.lower().endswith(
+        #             f"{config.QDSLcopyGrid.lower()}.elmnet"
+        #         ):
+        #             g.AddCopy(qdslInitializer)  # type: ignore
 
-                qdslInitializer.SetAttribute("outserv", 1)
-            ### END WORKAROUND ###
+        #     qdslInitializer.SetAttribute("outserv", 1)
+        # ### END WORKAROUND ###
 
-            inc = globals.pfp.app.GetFromStudyCase("ComInc")
-            assert inc is not None
-            sim = globals.pfp.app.GetFromStudyCase("ComSim")
-            assert sim is not None
-            comRes: pf.ComRes = globals.pfp.app.GetFromStudyCase("ComRes")  # type: ignore
-            assert comRes is not None
+        inc = globals.pfp.app.GetFromStudyCase("ComInc")
+        assert inc is not None
+        sim = globals.pfp.app.GetFromStudyCase("ComSim")
+        assert sim is not None
+        comRes: pf.ComRes = globals.pfp.app.GetFromStudyCase("ComRes")  # type: ignore
+        assert comRes is not None
 
-            taskAuto.AppendStudyCase(newStudycase)
-            taskAuto.AppendCommand(inc, -1)
-            taskAuto.AppendCommand(sim, -1)
-            taskAuto.AppendCommand(comRes, -1)
-            setupResFiles(pfSettings)
-            globals.pfp.app.WriteChangesToDb()
-            setupExport(app, exportName)
-            globals.pfp.app.WriteChangesToDb()
-            newStudycase.Deactivate()
-            globals.pfp.app.WriteChangesToDb()
+        taskAuto.AppendStudyCase(newStudycase)
+        taskAuto.AppendCommand(inc, -1)
+        taskAuto.AppendCommand(sim, -1)
+        taskAuto.AppendCommand(comRes, -1)
+        setupResFiles(pfSettings)
+        globals.pfp.app.WriteChangesToDb()
+        setupExport(app, exportName)
+        globals.pfp.app.WriteChangesToDb()
+        newStudycase.Deactivate()
+        globals.pfp.app.WriteChangesToDb()
 
     globals.pfp.app.EchoOn()
 
     if pfSettings.only_setup == 0:
         taskAuto.Execute()
 
-    if pfVersion >= 2024:
-        for studycase in studycases:
-            studycase.Activate()
-            setupPlots(app, root)
-            globals.pfp.app.WriteChangesToDb()
-            studycase.Deactivate()
-            globals.pfp.app.WriteChangesToDb()
-    else:
-        globals.pfp.app.PrintWarn(
-            "Plot setup not supported for PowerFactory versions older than 2024."
-        )
+    for studycase in studycases:
+        studycase.Activate()
+        setupPlots()
+        globals.pfp.app.WriteChangesToDb()
+        studycase.Deactivate()
+        globals.pfp.app.WriteChangesToDb()
 
     # Create post run backup
-    postBackup = script_GetInt(thisScript, "Post_run_backup")
-    assert isinstance(postBackup, int)
-    if postBackup > 0:
+    if pfSettings.post_run_backup:
         project.CreateVersion(f'POST_MTB_{datetime.now().strftime(r"%d%m%Y%H%M%S")}')
 
 

@@ -416,23 +416,23 @@ end subroutine {name}_const"""
 
 class Signal(Channel, PfApplyable):
     """
-    Dynamic value both in respect to time and rank passed to Powerfactory.
+    Dynamic value both in respect to time and rank (= test case) passed to Powerfactory.
     Each rank can either contain a piecewise defined waveform or a recorded waveform.
     """
 
     def __init__(self, name: str) -> None:
         self.__name__: str = name
         self.__waveforms__: Dict[int, Waveform] = dict()
-        self.__pf_subs_s__: List[
+        self.__pf_subs_value__: List[
             Tuple[PFGeneral, str, Optional[Callable[[Signal, float], float]]]
         ] = []
-        self.__pf_subscriptions_s0__: List[
+        self.__pf_subs_value0__: List[
             Tuple[PFGeneral, str, Optional[Callable[[Signal, float], float]]]
         ] = []
-        self.__pf_subscriptions_r__: List[
+        self.__pf_subs_ramp__: List[
             Tuple[PFGeneral, str, Optional[Callable[[Signal, float], float]]]
         ] = []
-        self.__pf_subscriptions_t__: List[
+        self.__pf_subs_mode__: List[
             Tuple[PFGeneral, str, Optional[Callable[[Signal, float], float]]]
         ] = []
         self.__pfp__: Optional[ActiveProject] = globals.pfp
@@ -470,16 +470,16 @@ class Signal(Channel, PfApplyable):
     def ranks(self):
         return self.__waveforms__.keys()
 
-    def add_pf_sub_s(
+    def add_pf_sub_value(
         self,
         target: str,
         attribute: str,
         func: Optional[Callable[[Signal, float], float]] = None,
     ):
-        if not (target, attribute, func) in self.__pf_subs_s__:
-            self.__pf_subs_s__.append((target, attribute, func))
+        if not (target, attribute, func) in self.__pf_subs_value__:
+            self.__pf_subs_value__.append((target, attribute, func))
 
-    def add_pf_sub_s0(
+    def add_pf_sub_value0(
         self,
         target: str,
         attribute: str,
@@ -495,107 +495,93 @@ class Signal(Channel, PfApplyable):
             attribute (str): Attribute of the target to be definded by Signal.
             func (Optional[Callable[[Signal, float], float]], optional): _description_. Defaults to None.
         """
-        if not (target, attribute, func) in self.__pf_subscriptions_s0__:
-            self.__pf_subscriptions_s0__.append((target, attribute, func))
+        if not (target, attribute, func) in self.__pf_subs_value0__:
+            self.__pf_subs_value0__.append((target, attribute, func))
 
-    def add_pf_sub_r(
+    def add_pf_sub_ramp(
         self,
         target: str,
         attribute: str,
         func: Optional[Callable[[Signal, float], float]] = None,
     ):
-        if not (target, attribute, func) in self.__pf_subscriptions_r__:
-            self.__pf_subscriptions_r__.append((target, attribute, func))
+        if not (target, attribute, func) in self.__pf_subs_ramp__:
+            self.__pf_subs_ramp__.append((target, attribute, func))
 
-    def add_pf_sub_t(
+    def add_pf_sub_mode(
         self,
         target: str,
         attribute: str,
         func: Optional[Callable[[Signal, float], float]] = None,
     ):
-        if not (target, attribute, func) in self.__pf_subscriptions_t__:
-            self.__pf_subscriptions_t__.append((target, attribute, func))
+        if not (target, attribute, func) in self.__pf_subs_mode__:
+            self.__pf_subs_mode__.append((target, attribute, func))
 
     def apply_to_pf(self, rank: int) -> None:
         _ = globals.pfp.app.GetFromStudyCase("ComInc").Execute()
 
         wf = self.__waveforms__[rank]
-
-        if isinstance(wf, Piecewise):
-            for target, attrib, func in self.__pf_subs_s__:
+        print(self.name, ':')
+        if isinstance(wf, Piecewise): # signal realized by events
+            for target, attrib, func in self.__pf_subs_value__:
                 target = self.parse_target_string(target)
-                for i in range(wf.len):
-                    if wf.t_pf(0)[i] != 0.0:
-                        if func != None:
-                            attrib_value = func(self, wf.s(0)[i])
-                        else:
-                            attrib_value = wf.s(0)[i]
-                        attrib_value = self.parse_attribute_value_type(
-                            target, attrib, attrib_value
-                        )
-                        globals.pfdyn.create_event(
-                            f"{self.name}_s.EvtParam",
-                            {
-                                "p_target": target,
-                                "time": wf.t_pf(0)[i],
-                                "variable": attrib,
-                                "value": str(attrib_value),
-                            },
-                        )
+                for event_number in range(wf.len):
+                    event_time = wf.t_pf(0)[event_number]
+                    if event_time == 0.0:
+                        continue
+                    event_value = wf.s(0)[event_number]
+                    globals.pfdyn.create_dyn_sim_event(
+                        f"{self.name}_value.EvtParam",
+                        {
+                            "p_target": target,
+                            "time": event_time,
+                            "variable": attrib,
+                            "value": str(func(self, event_value) if func else event_value),
+                        },
+                        overwrite=False,
+                    )
 
-            for target, attrib, func in self.__pf_subscriptions_r__:
+            for target, attrib, func in self.__pf_subs_ramp__:
                 target = self.parse_target_string(target)
-                for i in range(wf.len):
-                    if wf.t_pf(0)[i] != 0.0:
-                        if func != None:
-                            attrib_value = func(self, wf.r(0)[i])
-                        else:
-                            attrib_value = wf.r(0)[i]
-                        attrib_value = self.parse_attribute_value_type(
-                            target, attrib, attrib_value
-                        )
-                        globals.pfdyn.create_event(
-                            f"{self.name}_s.EvtParam",
-                            {
-                                "p_target": target,
-                                "time": wf.t_pf(0)[i],
-                                "variable": attrib,
-                                "value": str(attrib_value),
-                            },
-                        )
+                for event_number in range(wf.len):
+                    event_time = wf.t_pf(0)[event_number]
+                    if event_time == 0.0:
+                        continue
+                    event_ramp = wf.r(0)[event_number]
+                    globals.pfdyn.create_dyn_sim_event(
+                        f"{self.name}_ramp.EvtParam",
+                        {
+                            "p_target": target,
+                            "time": wf.t_pf(0)[event_number],
+                            "variable": attrib,
+                            "value": str(func(self, event_ramp) if func else event_ramp),
+                        },
+                        overwrite=False,
+                    )
 
-            if self.elmfile != None:
+            if self.elmfile: # deactivate elmfile
                 globals.pfp.set_attr(self.elmfile, {"e:outserv": 1, "e:f_name": ""})
 
-        elif isinstance(wf, Recorded):
-            if self.elmfile != None:
+        elif isinstance(wf, Recorded): # signal realized by elmfile
+            if self.elmfile: # activate elmfile
                 globals.pfp.set_attr(
                     self.elmfile, {"e:outserv": 0, "e:f_name": abspath(wf.pf_path)}
                 )
 
-        for target, attrib, func in self.__pf_subscriptions_s0__:
+        for target, attrib, func in self.__pf_subs_value0__:
             target = self.parse_target_string(target)
-            if func != None:
-                attrib_value = func(self, wf.s0)
-            else:
-                attrib_value = wf.s0
+            attrib_value = func(self, wf.s0) if func else wf.s0
             attrib_value = self.parse_attribute_value_type(target, attrib, attrib_value)
             globals.pfp.set_attr(target, {attrib: attrib_value})
+            print(f"    {target.loc_name}|{attrib} = {attrib_value}")
 
-        for target, attrib, func in self.__pf_subscriptions_t__:
+        for target, attrib, func in self.__pf_subs_mode__:
             target = self.parse_target_string(target)
-            if isinstance(wf, Piecewise):
-                typ = 0.0
-            else:
-                assert isinstance(wf, Recorded)
-                typ = 1.0
-
-            if func != None:
-                attrib_value = func(self, typ)
-            else:
-                attrib_value = typ
+            typ = 0.0 if isinstance(wf, Piecewise) else 1.0 if isinstance(wf, Recorded) else None
+            assert typ is not None, "wf must be an instance of Piecewise or Recorded."
+            attrib_value = func(self, typ) if func else typ
             attrib_value = self.parse_attribute_value_type(target, attrib, attrib_value)
             globals.pfp.set_attr(target, {attrib: attrib_value})
+            print(f"    {target.loc_name}|{attrib} = {attrib_value}")
 
 
 class String(Channel, PfApplyable):
@@ -674,5 +660,8 @@ def apply_to_powerfactory(channels: List[Channel], rank: int):
     Apply all channel setups in list to Powerfactory.
     """
     for channel in channels:
-        if isinstance(channel, PfApplyable):
-            channel.apply_to_pf(rank)
+        if not isinstance(channel, PfApplyable):
+            continue
+        channel.apply_to_pf(rank)
+        # globals.pfp.app.PrintPlain(f"EXECUTING:{channel.name}")#
+        # globals.pfdyn.initialize_and_run_sim()#
