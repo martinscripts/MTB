@@ -484,6 +484,7 @@ def main():
         si.apply_to_powerfactory(channels, case.rank)
 
         # initScript.Execute() # this script parses the Q control mode and for example FSM mode of the plantSettings to the P and Q controllers # TODO reimplement
+        # TODO write a script that takes P and Q control modes ('PMODES') and translates them to the models' mode definitions
 
         # ### WORKAROUND FOR QDSL FAILING WHEN IN MTB-GRID ### # TODO delete?
         # # TODO: REMOVE WHEN FIXED

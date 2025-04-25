@@ -520,7 +520,7 @@ class Signal(Channel, PfApplyable):
         _ = globals.pfp.app.GetFromStudyCase("ComInc").Execute()
 
         wf = self.__waveforms__[rank]
-        print(self.name, ':')
+        # print(self.name, ':')
         if isinstance(wf, Piecewise): # signal realized by events
             for target, attrib, func in self.__pf_subs_value__:
                 target = self.parse_target_string(target)
@@ -572,7 +572,7 @@ class Signal(Channel, PfApplyable):
             attrib_value = func(self, wf.s0) if func else wf.s0
             attrib_value = self.parse_attribute_value_type(target, attrib, attrib_value)
             globals.pfp.set_attr(target, {attrib: attrib_value})
-            print(f"    {target.loc_name}|{attrib} = {attrib_value}")
+            # print(f"    {target.loc_name}|{attrib} = {attrib_value}")
 
         for target, attrib, func in self.__pf_subs_mode__:
             target = self.parse_target_string(target)
@@ -581,7 +581,7 @@ class Signal(Channel, PfApplyable):
             attrib_value = func(self, typ) if func else typ
             attrib_value = self.parse_attribute_value_type(target, attrib, attrib_value)
             globals.pfp.set_attr(target, {attrib: attrib_value})
-            print(f"    {target.loc_name}|{attrib} = {attrib_value}")
+            # print(f"    {target.loc_name}|{attrib} = {attrib_value}")
 
 
 class String(Channel, PfApplyable):
